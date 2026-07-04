@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "842504133742",
+    "project_id": "leo-robot-conteoller",
+    "storage_bucket": "leo-robot-conteoller.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:842504133742:android:80f499377f16ae79465a7f",
+        "android_client_info": {
+          "package_name": "com.example.first_app_test"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAdcpZw75uHpSAlAZiPA9OcjUMBgTda-Aw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
