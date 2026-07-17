@@ -2,12 +2,15 @@
 
 extern I2C_HandleTypeDef MAG_I2C;
 
+uint8_t LIS2MDL_LastWhoAmI = 0;
+int32_t LIS2MDL_LastI2CStatus = HAL_OK;
+
 // ================= LOW LEVEL ===================
 
 static uint8_t LIS2MDL_ReadReg(uint8_t reg)
 {
     uint8_t val = 0;
-    HAL_I2C_Mem_Read(&MAG_I2C, LIS2MDL_I2C_ADDR, reg, I2C_MEMADD_SIZE_8BIT, &val, 1, HAL_MAX_DELAY);
+    LIS2MDL_LastI2CStatus = HAL_I2C_Mem_Read(&MAG_I2C, LIS2MDL_I2C_ADDR, reg, I2C_MEMADD_SIZE_8BIT, &val, 1, HAL_MAX_DELAY);
     return val;
 }
 
@@ -27,6 +30,7 @@ static void LIS2MDL_ReadBurst(uint8_t reg, uint8_t *buf, uint16_t len)
 int LIS2MDL_Init(void)
 {
     uint8_t who = LIS2MDL_ReadReg(LIS2MDL_WHO_AM_I);
+    LIS2MDL_LastWhoAmI = who;
     if (who != LIS2MDL_ID)
         return MAG_ERROR;
 

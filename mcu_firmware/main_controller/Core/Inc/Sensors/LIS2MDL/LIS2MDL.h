@@ -40,4 +40,9 @@ int LIS2MDL_Init(void);
 int LIS2MDL_ReadData(LIS2MDL_t *data);
 int LIS2MDL_DataReady(void);
 
+// Diagnostics for the last WHO_AM_I read done by LIS2MDL_Init()
+// (valid to read right after a failed init call)
+extern uint8_t LIS2MDL_LastWhoAmI;
+extern int32_t LIS2MDL_LastI2CStatus;
+
 #endif

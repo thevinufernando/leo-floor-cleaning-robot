@@ -24,9 +24,16 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "ICM42688.h"
-#include "LIS2MDL.h"
 #include "usbd_cdc_if.h"
 #include <stdio.h>
+
+/* LIS2MDL is unpopulated/faulty on this board revision (I2C NACK, see PB6/PB7).
+   Set to 1 once the IC is replaced and verified. */
+#define LIS2MDL_ENABLED 0
+
+#if LIS2MDL_ENABLED
+#include "LIS2MDL.h"
+#endif
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -348,7 +355,7 @@ static void MX_GPIO_Init(void)
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartDefaultTask */
+/* USER CODE END Header_StartDe  faultTask */
 void StartDefaultTask(void *argument)
 {
   /* init code for USB_DEVICE */
@@ -359,7 +366,6 @@ void StartDefaultTask(void *argument)
   osDelay(2000);
 
   int icm_ok = (ICM42688_Init() == ICM_OK);
-  int mag_ok = (LIS2MDL_Init() == MAG_OK);
 
   char msg[192];
   if (!icm_ok)
@@ -367,14 +373,20 @@ void StartDefaultTask(void *argument)
     int len = snprintf(msg, sizeof(msg), "ICM42688 init FAILED (WHO_AM_I mismatch)\r\n");
     CDC_Transmit_FS((uint8_t *)msg, (uint16_t)len);
   }
+
+#if LIS2MDL_ENABLED
+  int mag_ok = (LIS2MDL_Init() == MAG_OK);
   if (!mag_ok)
   {
-    int len = snprintf(msg, sizeof(msg), "LIS2MDL init FAILED (WHO_AM_I mismatch)\r\n");
+    int len = snprintf(msg, sizeof(msg),
+      "LIS2MDL init FAILED: I2C status=%ld WHO_AM_I=0x%02X (expected 0x40)\r\n",
+      (long)LIS2MDL_LastI2CStatus, LIS2MDL_LastWhoAmI);
     CDC_Transmit_FS((uint8_t *)msg, (uint16_t)len);
   }
+  LIS2MDL_t mag_data = {0};
+#endif
 
   ICM42688_t icm_data = {0};
-  LIS2MDL_t mag_data = {0};
 
   /* Infinite loop */
   for(;;)
@@ -391,6 +403,7 @@ void StartDefaultTask(void *argument)
       CDC_Transmit_FS((uint8_t *)msg, (uint16_t)len);
     }
 
+#if LIS2MDL_ENABLED
     if (mag_ok && LIS2MDL_ReadData(&mag_data) == MAG_OK)
     {
       len = snprintf(msg, sizeof(msg),
@@ -399,6 +412,7 @@ void StartDefaultTask(void *argument)
       CDC_Transmit_FS((uint8_t *)msg, (uint16_t)len);
     }
     else
+#endif
     {
       len = snprintf(msg, sizeof(msg), "\r\n");
       CDC_Transmit_FS((uint8_t *)msg, (uint16_t)len);
