@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="cleaning_robot">
+
+  <!-- =================================================================== -->
+  <!-- Top-level xacro for the autonomous cleaning robot.                  -->
+  <!--                                                                     -->
+  <!-- Differential-drive base, 350 mm diameter, ~70 mm tall, with a 2D    -->
+  <!-- LiDAR, IMU, 4 cliff sensors, and a cleaning unit (vacuum + side     -->
+  <!-- brush).                                                             -->
+  <!--                                                                     -->
+  <!-- To edit robot dimensions/mount positions once the robot is built,   -->
+  <!-- edit urdf/common_properties.xacro == that is the single file with   -->
+  <!-- all the physical parameters. This file only wires the sub-modules   -->
+  <!-- together and should rarely need changes.                           -->
+  <!--                                                                     -->
+  <!-- Full TF tree:                                                      -->
+  <!--   base_footprint                                                    -->
+  <!--     to base_link                                                    -->
+  <!--          to left_wheel_link                                        -->
+  <!--          to right_wheel_link                                       -->
+  <!--          to caster_wheel_link                                      -->
+  <!--          to laser                                                  -->
+  <!--          to imu_link                                               -->
+  <!--          to cliff_front_left_link                                  -->
+  <!--          to cliff_front_right_link                                 -->
+  <!--          to cliff_rear_left_link                                   -->
+  <!--          to cliff_rear_right_link                                  -->
+  <!--          to vacuum_link                                            -->
+  <!--          to side_brush_link                                       -->
+  <!-- =================================================================== -->
+
+  <xacro:include filename="$(find robot_description)/urdf/common_properties.xacro"/>
+  <xacro:include filename="$(find robot_description)/urdf/base.xacro"/>
+  <xacro:include filename="$(find robot_description)/urdf/lidar.xacro"/>
+  <xacro:include filename="$(find robot_description)/urdf/imu.xacro"/>
+  <xacro:include filename="$(find robot_description)/urdf/cliff_sensors.xacro"/>
+  <xacro:include filename="$(find robot_description)/urdf/cleaning_unit.xacro"/>
+
+</robot>

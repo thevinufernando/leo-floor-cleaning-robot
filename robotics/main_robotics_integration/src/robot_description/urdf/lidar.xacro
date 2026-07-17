@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- =================================================================== -->
+  <!-- 2D LiDAR sensor frame.                                               -->
+  <!-- TF tree produced by this file:                                      -->
+  <!--   base_link to laser                                                -->
+  <!--                                                                     -->
+  <!-- NOTE: frame name "laser" matches the frame_id already used by       -->
+  <!-- lidar_bringup / rplidar_ros. Once this URDF is loaded via           -->
+  <!-- robot_state_publisher, remove the static_transform_publisher node   -->
+  <!-- in lidar_bringup/launch/lidar.launch.py so there is only one        -->
+  <!-- source of truth for base_link to laser.                            -->
+  <!-- =================================================================== -->
+
+  <link name="laser">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${lidar_radius}" length="${lidar_height}"/>
+      </geometry>
+      <material name="lidar_red"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${lidar_radius}" length="${lidar_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${lidar_mass}"/>
+      <xacro:cylinder_inertia mass="${lidar_mass}" radius="${lidar_radius}" height="${lidar_height}"/>
+    </inertial>
+  </link>
+
+  <joint name="laser_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="laser"/>
+    <!-- yaw=0 assumes the LiDAR's 0-degree mark points toward the robot's
+         front (+X). Rotate here (not in the driver) if it's mounted rotated. -->
+    <origin xyz="${lidar_x_offset} ${lidar_y_offset} ${lidar_z_offset}" rpy="0 0 0"/>
+  </joint>
+
+</robot>

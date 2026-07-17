@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- =================================================================== -->
+  <!-- Cleaning unit: vacuum housing/inlet + rotating side brush.           -->
+  <!-- TF tree produced by this file (all children of base_link):          -->
+  <!--   base_link to vacuum_link                                          -->
+  <!--   base_link to side_brush_link                                      -->
+  <!--                                                                     -->
+  <!-- These are geometry/TF placeholders only == no ros2_control/transmission -->
+  <!-- is defined here. Add a <transmission> or ros2_control block once the -->
+  <!-- vacuum motor and brush motor are wired up and need to be commanded. -->
+  <!-- =================================================================== -->
+
+  <!-- ================ Vacuum housing / suction inlet ================ -->
+  <link name="vacuum_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${vacuum_length} ${vacuum_width} ${vacuum_height}"/>
+      </geometry>
+      <material name="sensor_dark_blue"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${vacuum_length} ${vacuum_width} ${vacuum_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${vacuum_mass}"/>
+      <xacro:box_inertia mass="${vacuum_mass}" x="${vacuum_length}" y="${vacuum_width}" z="${vacuum_height}"/>
+    </inertial>
+  </link>
+
+  <joint name="vacuum_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="vacuum_link"/>
+    <origin xyz="${vacuum_x_offset} ${vacuum_y_offset} ${vacuum_z_offset}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ================ Side brush ================ -->
+  <!-- Modelled as a "continuous" joint (spins about its own Z axis) since
+       it's an actively driven rotating brush, even though it's not yet
+       wired to a motor controller. This keeps the joint kinematically
+       correct for when a brush-speed command/transmission is added later. -->
+  <link name="side_brush_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${side_brush_radius}" length="${side_brush_height}"/>
+      </geometry>
+      <material name="brush_orange"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${side_brush_radius}" length="${side_brush_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${side_brush_mass}"/>
+      <xacro:cylinder_inertia mass="${side_brush_mass}" radius="${side_brush_radius}" height="${side_brush_height}"/>
+    </inertial>
+  </link>
+
+  <joint name="side_brush_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="side_brush_link"/>
+    <origin xyz="${side_brush_x_offset} ${side_brush_y_offset} ${side_brush_z_offset}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+</robot>

@@ -1,0 +1,4 @@
+# Stable symlink for the custom STM32F722RET6 MCU board (USB CDC-ACM).
+# Mirrors src/rplidar_ros/scripts/rplidar.rules so both devices get
+# deterministic /dev names regardless of USB enumeration order.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="5740", MODE:="0666", SYMLINK+="mcu"

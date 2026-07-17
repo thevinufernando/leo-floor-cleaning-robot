@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- =================================================================== -->
+  <!-- Cliff (drop) sensors: IR / ToF sensors facing the floor to detect    -->
+  <!-- stairs/ledges at the chassis edge.                                   -->
+  <!-- TF tree produced by this file (all children of base_link):          -->
+  <!--   base_link to cliff_front_left_link                                -->
+  <!--   base_link to cliff_front_right_link                               -->
+  <!--   base_link to cliff_rear_left_link                                 -->
+  <!--   base_link to cliff_rear_right_link                                -->
+  <!--                                                                     -->
+  <!-- To add more cliff sensors (e.g. a 5th centre-front sensor), add a    -->
+  <!-- new angle property in common_properties.xacro and a new             -->
+  <!-- <xacro:cliff_sensor .../> call below; the macro itself does not      -->
+  <!-- need to change.                                                     -->
+  <!-- =================================================================== -->
+
+  <!-- Each sensor faces straight down (pitch = 90 deg) to detect a drop
+       (stairs/ledge) beneath the chassis edge. angle = position around the
+       chassis rim, measured counter-clockwise from the front (+X axis). -->
+  <xacro:macro name="cliff_sensor" params="name angle">
+    <link name="cliff_${name}_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="${cliff_size} ${cliff_size} ${cliff_size}"/>
+        </geometry>
+        <material name="sensor_dark_blue"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="${cliff_size} ${cliff_size} ${cliff_size}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="${cliff_mass}"/>
+        <xacro:box_inertia mass="${cliff_mass}" x="${cliff_size}" y="${cliff_size}" z="${cliff_size}"/>
+      </inertial>
+    </link>
+
+    <joint name="cliff_${name}_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="cliff_${name}_link"/>
+      <!-- pitch = pi/2 points the sensor's +Z (its "forward"/sensing axis)
+           straight down toward the floor. -->
+      <origin xyz="${cliff_mount_radius * cos(angle)} ${cliff_mount_radius * sin(angle)} ${cliff_z_offset}"
+              rpy="0 ${pi/2} ${angle}"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:cliff_sensor name="front_left"  angle="${cliff_front_left_angle}"/>
+  <xacro:cliff_sensor name="front_right" angle="${cliff_front_right_angle}"/>
+  <xacro:cliff_sensor name="rear_left"   angle="${cliff_rear_left_angle}"/>
+  <xacro:cliff_sensor name="rear_right"  angle="${cliff_rear_right_angle}"/>
+
+</robot>

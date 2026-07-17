@@ -1,0 +1,151 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- =================================================================== -->
+  <!-- EDIT THIS FILE once the robot is fully built to match real hardware. -->
+  <!-- All dimensions are in metres, masses in kg, angles in radians.      -->
+  <!-- =================================================================== -->
+
+  <!-- ================ Chassis (main robot body) ================ -->
+  <!-- Robot is a round vacuum-style base: 350 mm diameter, ~70 mm tall. -->
+  <xacro:property name="base_diameter"   value="0.350"/>   <!-- measured base diameter -->
+  <xacro:property name="base_radius"     value="${base_diameter / 2}"/>
+  <xacro:property name="base_height"     value="0.070"/>   <!-- overall chassis height -->
+  <xacro:property name="base_mass"       value="2.0"/>     <!-- TODO: update with real measured mass (kg) -->
+
+  <!-- Height of base_link origin above the ground/floor plane.
+       Keep this equal to wheel_radius so the wheel axle sits at ground + wheel_radius,
+       and base_link (chassis centre) sits directly above it. -->
+  <xacro:property name="base_ground_clearance" value="0.015"/> <!-- TODO: measure real ground clearance under chassis -->
+
+  <!-- ================ Wheels (differential drive) ================ -->
+  <!-- TODO: replace with real wheel dimensions once motors/wheels are chosen. -->
+  <xacro:property name="wheel_radius"    value="0.034"/>
+  <xacro:property name="wheel_width"     value="0.026"/>
+  <xacro:property name="wheel_mass"      value="0.040"/>
+
+  <!-- Distance between the centres of the two drive wheels (track width).
+       TODO: measure this directly on the robot == it must match wheel placement
+       on the actual chassis for odometry to be accurate. -->
+  <xacro:property name="wheel_separation" value="0.290"/>
+
+  <!-- Fore/aft offset of the wheel axle from the chassis centre (base_link).
+       0.0 = wheels mounted on the robot's centreline (typical for a round
+       vacuum-style differential-drive base). -->
+  <xacro:property name="wheel_x_offset"  value="0.0"/>
+
+  <!-- Vertical offset of the wheel centre relative to base_link origin.
+       Negative because base_link sits above ground by base_ground_clearance,
+       and wheel centre sits at wheel_radius above the ground. -->
+  <xacro:property name="wheel_z_offset"  value="${wheel_radius - base_ground_clearance}"/>
+
+  <!-- ================ Caster wheel (passive support wheel) ================ -->
+  <!-- Round robots typically use a single rear (or front) passive caster/ball
+       wheel for a 3-point support (2 drive wheels + 1 caster).
+       TODO: adjust radius/position to match the actual caster hardware. -->
+  <xacro:property name="caster_radius"   value="0.015"/>
+  <xacro:property name="caster_mass"     value="0.030"/>
+  <xacro:property name="caster_x_offset" value="${(base_radius - 0.03)}"/> <!-- placed toward the rear -->
+  <xacro:property name="caster_z_offset" value="${caster_radius - base_ground_clearance}"/>
+
+  <!-- ================ LiDAR (2D) ================ -->
+  <!-- TODO: update x/y/z to the exact LiDAR mounting position once installed.
+       Values below assume the LiDAR is centred on the robot and mounted on
+       top of the chassis (matches the lidar_bringup static TF default of
+       z = 0.10 m == update lidar_bringup or remove its static TF once this
+       URDF is the single source of truth for base_link to laser). -->
+  <xacro:property name="lidar_radius"    value="0.035"/>
+  <xacro:property name="lidar_height"    value="0.040"/>
+  <xacro:property name="lidar_mass"      value="0.170"/>  <!-- approx. RPLIDAR C1 mass -->
+  <xacro:property name="lidar_x_offset"  value="0.0"/>
+  <xacro:property name="lidar_y_offset"  value="0.0"/>
+  <xacro:property name="lidar_z_offset"  value="${(base_height / 2) + (lidar_height / 2)}"/>
+
+  <!-- ================ IMU ================ -->
+  <!-- TODO: update to the exact IMU mounting position. Mounting the IMU as
+       close to the robot's centre of rotation (base_link) as possible
+       generally gives the best odometry fusion results. -->
+  <xacro:property name="imu_size"        value="0.020"/>  <!-- small cube approximation -->
+  <xacro:property name="imu_mass"        value="0.010"/>
+  <xacro:property name="imu_x_offset"    value="0.0"/>
+  <xacro:property name="imu_y_offset"    value="0.0"/>
+  <xacro:property name="imu_z_offset"    value="0.01"/>
+
+  <!-- ================ Cliff sensors (IR / ToF drop sensors) ================ -->
+  <!-- 4 sensors, typically arranged front-left, front-right, rear-left,
+       rear-right, facing down at the chassis edge to detect stairs/drops.
+       TODO: update the mounting angles/offsets to match actual sensor
+       placement once drilled/mounted on the chassis. -->
+  <xacro:property name="cliff_size"          value="0.010"/> <!-- small cube approximation -->
+  <xacro:property name="cliff_mass"          value="0.005"/>
+  <xacro:property name="cliff_mount_radius"  value="${base_radius - 0.015}"/> <!-- near chassis edge -->
+  <xacro:property name="cliff_z_offset"      value="${-(base_height / 2) + 0.005}"/> <!-- near chassis underside -->
+
+  <!-- Angles (from +X / front, counter-clockwise) for the 4 cliff sensors. -->
+  <xacro:property name="cliff_front_left_angle"   value="${radians(45)}"/>
+  <xacro:property name="cliff_front_right_angle"  value="${radians(-45)}"/>
+  <xacro:property name="cliff_rear_left_angle"    value="${radians(135)}"/>
+  <xacro:property name="cliff_rear_right_angle"   value="${radians(-135)}"/>
+
+  <!-- ================ Cleaning unit: vacuum + side brush ================ -->
+  <!-- TODO: update once the vacuum housing and side brush motor are finalised. -->
+  <xacro:property name="vacuum_length"   value="0.120"/>
+  <xacro:property name="vacuum_width"    value="0.080"/>
+  <xacro:property name="vacuum_height"   value="0.040"/>
+  <xacro:property name="vacuum_mass"     value="0.200"/>
+  <!-- Vacuum inlet is mounted centrally underneath, toward the front. -->
+  <xacro:property name="vacuum_x_offset" value="${base_radius * 0.4}"/>
+  <xacro:property name="vacuum_y_offset" value="0.0"/>
+  <xacro:property name="vacuum_z_offset" value="${-(base_height / 2) + (vacuum_height / 2)}"/>
+
+  <!-- Side brush: single rotating brush, front-right corner (common layout
+       so the brush sweeps debris from walls/corners into the vacuum path).
+       Set brush_side to "left" and mirror x/y offsets if yours is mounted
+       on the left instead. -->
+  <xacro:property name="side_brush_radius" value="0.040"/>
+  <xacro:property name="side_brush_height" value="0.010"/>
+  <xacro:property name="side_brush_mass"   value="0.030"/>
+  <xacro:property name="side_brush_x_offset" value="${base_radius * 0.6}"/>
+  <xacro:property name="side_brush_y_offset" value="${-(base_radius * 0.6)}"/>  <!-- negative = right side -->
+  <xacro:property name="side_brush_z_offset" value="${-(base_height / 2) + (side_brush_height / 2)}"/>
+
+  <!-- ================ Materials (RViz colours only, no physical meaning) ================ -->
+  <material name="chassis_grey">
+    <color rgba="0.75 0.75 0.75 1.0"/>
+  </material>
+  <material name="wheel_black">
+    <color rgba="0.1 0.1 0.1 1.0"/>
+  </material>
+  <material name="sensor_dark_blue">
+    <color rgba="0.1 0.1 0.4 1.0"/>
+  </material>
+  <material name="lidar_red">
+    <color rgba="0.8 0.1 0.1 1.0"/>
+  </material>
+  <material name="brush_orange">
+    <color rgba="0.9 0.5 0.1 1.0"/>
+  </material>
+
+  <!-- ================ Reusable inertia macros ================ -->
+  <xacro:macro name="cylinder_inertia" params="mass radius height">
+    <inertia
+      ixx="${(1/12) * mass * (3*radius*radius + height*height)}" ixy="0.0" ixz="0.0"
+      iyy="${(1/12) * mass * (3*radius*radius + height*height)}" iyz="0.0"
+      izz="${(1/2) * mass * radius * radius}"/>
+  </xacro:macro>
+
+  <xacro:macro name="sphere_inertia" params="mass radius">
+    <inertia
+      ixx="${(2/5) * mass * radius * radius}" ixy="0.0" ixz="0.0"
+      iyy="${(2/5) * mass * radius * radius}" iyz="0.0"
+      izz="${(2/5) * mass * radius * radius}"/>
+  </xacro:macro>
+
+  <xacro:macro name="box_inertia" params="mass x y z">
+    <inertia
+      ixx="${(1/12) * mass * (y*y + z*z)}" ixy="0.0" ixz="0.0"
+      iyy="${(1/12) * mass * (x*x + z*z)}" iyz="0.0"
+      izz="${(1/12) * mass * (x*x + y*y)}"/>
+  </xacro:macro>
+
+</robot>

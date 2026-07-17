@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>lidar_bringup</name>
+  <version>0.1.0</version>
+  <description>Bringup package for RPLIDAR C1 on the autonomous vacuum robot</description>
+
+  <maintainer email="thevinuworks1@gmail.com">thevinufpi</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>rplidar_ros</exec_depend>
+  <exec_depend>robot_description</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>joint_state_publisher</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+
+  <!-- Only needed on the dev machine (WSL2) running lidar_view.launch.py /
+       rviz_only.launch.py. Not installed on the Pi (Ubuntu Server, headless).
+       See NETWORK_SETUP.md. -->
+  <exec_depend>rviz2</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

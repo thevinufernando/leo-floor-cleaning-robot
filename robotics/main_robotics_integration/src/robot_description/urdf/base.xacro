@@ -1,0 +1,113 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- =================================================================== -->
+  <!-- Chassis, drive wheels and passive caster wheel.                     -->
+  <!-- TF tree produced by this file:                                      -->
+  <!--   base_footprint to base_link to left_wheel_link                    -->
+  <!--                              \to right_wheel_link                   -->
+  <!--                              \to caster_wheel_link                  -->
+  <!-- =================================================================== -->
+
+  <!-- base_footprint: virtual frame on the ground plane, directly below
+       base_link. This is the standard REP-105 frame used by nav2 /
+       robot_localization as the robot's planar pose reference. -->
+  <link name="base_footprint"/>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 ${base_ground_clearance + (base_height / 2)}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- base_link: main chassis, modelled as a flat cylinder (disc). -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${base_radius}" length="${base_height}"/>
+      </geometry>
+      <material name="chassis_grey"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${base_radius}" length="${base_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${base_mass}"/>
+      <xacro:cylinder_inertia mass="${base_mass}" radius="${base_radius}" height="${base_height}"/>
+    </inertial>
+  </link>
+
+  <!-- ================ Drive wheel macro (left/right) ================ -->
+  <!-- reflect = +1 for left wheel, -1 for right wheel -->
+  <xacro:macro name="drive_wheel" params="prefix reflect">
+    <link name="${prefix}_wheel_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+        <material name="wheel_black"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <mass value="${wheel_mass}"/>
+        <xacro:cylinder_inertia mass="${wheel_mass}" radius="${wheel_radius}" height="${wheel_width}"/>
+      </inertial>
+    </link>
+
+    <!-- Continuous joint: wheel spins freely about its own Y axis.
+         Wheel odometry/velocity is driven externally (e.g. by mcu_bridge /
+         a diff-drive controller), not by this URDF. -->
+    <joint name="${prefix}_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${prefix}_wheel_link"/>
+      <origin xyz="${wheel_x_offset} ${reflect * (wheel_separation / 2)} ${-wheel_z_offset}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:drive_wheel prefix="left"  reflect="1"/>
+  <xacro:drive_wheel prefix="right" reflect="-1"/>
+
+  <!-- ================ Passive caster wheel ================ -->
+  <!-- Modelled as a sphere so it doesn't add a steering DOF; mount as a
+       fixed joint since it's a free-rolling ball/roller caster in practice. -->
+  <link name="caster_wheel_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="${caster_radius}"/>
+      </geometry>
+      <material name="wheel_black"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="${caster_radius}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${caster_mass}"/>
+      <xacro:sphere_inertia mass="${caster_mass}" radius="${caster_radius}"/>
+    </inertial>
+  </link>
+
+  <joint name="caster_wheel_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="caster_wheel_link"/>
+    <origin xyz="${caster_x_offset} 0 ${-caster_z_offset}" rpy="0 0 0"/>
+  </joint>
+
+</robot>

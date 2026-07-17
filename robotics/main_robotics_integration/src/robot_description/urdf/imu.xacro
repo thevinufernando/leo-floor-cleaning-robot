@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- =================================================================== -->
+  <!-- IMU sensor frame.                                                   -->
+  <!-- TF tree produced by this file:                                      -->
+  <!--   base_link to imu_link                                             -->
+  <!-- =================================================================== -->
+
+  <link name="imu_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${imu_size} ${imu_size} ${imu_size}"/>
+      </geometry>
+      <material name="sensor_dark_blue"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${imu_size} ${imu_size} ${imu_size}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${imu_mass}"/>
+      <xacro:box_inertia mass="${imu_mass}" x="${imu_size}" y="${imu_size}" z="${imu_size}"/>
+    </inertial>
+  </link>
+
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <!-- rpy=0 assumes the IMU's axes are aligned with base_link (X-forward,
+         Y-left, Z-up). If the IMU chip is mounted rotated on its PCB,
+         set this rotation so imu_link's axes match REP-103 conventions,
+         it's usually simpler to correct here than in software. -->
+    <origin xyz="${imu_x_offset} ${imu_y_offset} ${imu_z_offset}" rpy="0 0 0"/>
+  </joint>
+
+</robot>
