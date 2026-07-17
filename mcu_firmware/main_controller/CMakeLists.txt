@@ -45,11 +45,15 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
+    Core/Src/Sensors/ICM42688/ICM42688.c
+    Core/Src/Sensors/LIS2MDL/LIS2MDL.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
+    Core/Inc/Sensors/ICM42688
+    Core/Inc/Sensors/LIS2MDL
 )
 
 # Add project symbols (macros)
