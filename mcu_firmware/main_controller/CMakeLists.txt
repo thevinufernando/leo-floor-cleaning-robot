@@ -48,6 +48,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/Sensors/ICM42688/ICM42688.c
     Core/Src/Sensors/LIS2MDL/LIS2MDL.c
     Core/Src/Encoders/encoders.c
+    Core/Src/Motors/DifferentialDrive/DRV8251A.c
 )
 
 # Add include paths
@@ -56,6 +57,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Inc/Sensors/ICM42688
     Core/Inc/Sensors/LIS2MDL
     Core/Inc/Encoders
+    Core/Inc/Motors/DifferentialDrive
 )
 
 # Add project symbols (macros)
