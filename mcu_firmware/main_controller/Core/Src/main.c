@@ -25,6 +25,7 @@
 /* USER CODE BEGIN Includes */
 #include "ICM42688.h"
 #include "usbd_cdc_if.h"
+#include "encoders.h"
 #include <stdio.h>
 
 /* LIS2MDL is unpopulated/faulty on this board revision (I2C NACK, see PB6/PB7).
@@ -65,9 +66,26 @@ osThreadId_t IMU_HandlerHandle;
 const osThreadAttr_t IMU_Handler_attributes = {
   .name = "IMU_Handler",
   .stack_size = 256 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityHigh,
+};
+/* Definitions for Encoder_Handler */
+osThreadId_t Encoder_HandlerHandle;
+const osThreadAttr_t Encoder_Handler_attributes = {
+  .name = "Encoder_Handler",
+  .stack_size = 256 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
 };
 /* USER CODE BEGIN PV */
+
+/* Temporary Live Watch variables for verifying sensor readings.
+   Remove once dedicated odometry/telemetry tasks are in place. */
+volatile float lw_imu_ax, lw_imu_ay, lw_imu_az;
+volatile float lw_imu_gx, lw_imu_gy, lw_imu_gz;
+volatile float lw_imu_temp;
+
+volatile int32_t lw_enc_left_count, lw_enc_right_count;
+volatile int16_t lw_enc_left_delta, lw_enc_right_delta;
+volatile float lw_enc_left_distance, lw_enc_right_distance;
 
 /* USER CODE END PV */
 
@@ -78,7 +96,8 @@ static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
-void StartDefaultTask(void *argument);
+void IMUTask(void *argument);
+void EncoderTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -124,6 +143,9 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
+  HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
+  HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -147,7 +169,10 @@ int main(void)
 
   /* Create the thread(s) */
   /* creation of IMU_Handler */
-  IMU_HandlerHandle = osThreadNew(StartDefaultTask, NULL, &IMU_Handler_attributes);
+  IMU_HandlerHandle = osThreadNew(IMUTask, NULL, &IMU_Handler_attributes);
+
+  /* creation of Encoder_Handler */
+  Encoder_HandlerHandle = osThreadNew(EncoderTask, NULL, &Encoder_Handler_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -456,40 +481,21 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_StartDefaultTask */
+/* USER CODE BEGIN Header_IMUTask */
 /**
   * @brief  Function implementing the IMU_Handler thread.
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
+/* USER CODE END Header_IMUTask */
+void IMUTask(void *argument)
 {
-  /* init code for USB_DEVICE */
-  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 5 */
-
-  /* Let the USB CDC enumerate before we start printing */
-  osDelay(2000);
 
   int icm_ok = (ICM42688_Init() == ICM_OK);
 
-  char msg[192];
-  if (!icm_ok)
-  {
-    int len = snprintf(msg, sizeof(msg), "ICM42688 init FAILED (WHO_AM_I mismatch)\r\n");
-    CDC_Transmit_FS((uint8_t *)msg, (uint16_t)len);
-  }
-
 #if LIS2MDL_ENABLED
   int mag_ok = (LIS2MDL_Init() == MAG_OK);
-  if (!mag_ok)
-  {
-    int len = snprintf(msg, sizeof(msg),
-      "LIS2MDL init FAILED: I2C status=%ld WHO_AM_I=0x%02X (expected 0x40)\r\n",
-      (long)LIS2MDL_LastI2CStatus, LIS2MDL_LastWhoAmI);
-    CDC_Transmit_FS((uint8_t *)msg, (uint16_t)len);
-  }
   LIS2MDL_t mag_data = {0};
 #endif
 
@@ -498,36 +504,60 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    int len = 0;
-
     if (icm_ok && ICM42688_ReadData(&icm_data) == ICM_OK)
     {
-      len = snprintf(msg, sizeof(msg),
-        "ACC[g]: %.3f %.3f %.3f  GYRO[dps]: %.3f %.3f %.3f  T[C]: %.2f",
-        icm_data.ax, icm_data.ay, icm_data.az,
-        icm_data.gx, icm_data.gy, icm_data.gz,
-        icm_data.temperature);
-      CDC_Transmit_FS((uint8_t *)msg, (uint16_t)len);
+      /* USER CODE BEGIN Live Watch: IMU */
+      lw_imu_ax = icm_data.ax;
+      lw_imu_ay = icm_data.ay;
+      lw_imu_az = icm_data.az;
+      lw_imu_gx = icm_data.gx;
+      lw_imu_gy = icm_data.gy;
+      lw_imu_gz = icm_data.gz;
+      lw_imu_temp = icm_data.temperature;
+      /* USER CODE END Live Watch: IMU */
     }
 
 #if LIS2MDL_ENABLED
     if (mag_ok && LIS2MDL_ReadData(&mag_data) == MAG_OK)
     {
-      len = snprintf(msg, sizeof(msg),
-        "  MAG[G]: %.3f %.3f %.3f\r\n",
-        mag_data.mx, mag_data.my, mag_data.mz);
-      CDC_Transmit_FS((uint8_t *)msg, (uint16_t)len);
+      /* TODO: expose mag_data via Live Watch once magnetometer is enabled */
     }
-    else
 #endif
-    {
-      len = snprintf(msg, sizeof(msg), "\r\n");
-      CDC_Transmit_FS((uint8_t *)msg, (uint16_t)len);
-    }
 
     osDelay(100);
   }
   /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_EncoderTask */
+/**
+* @brief Function implementing the Encoder_Handler thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_EncoderTask */
+void EncoderTask(void *argument)
+{
+  /* USER CODE BEGIN EncoderTask */
+  Encoders_Init();
+
+  /* Infinite loop */
+  for(;;)
+  {
+    Encoders_Update();
+
+    /* USER CODE BEGIN Live Watch: Encoders */
+    lw_enc_left_count = Encoder_getLeftCount();
+    lw_enc_right_count = Encoder_getRightCount();
+    lw_enc_left_delta = Encoder_getLeftDeltaCount();
+    lw_enc_right_delta = Encoder_getRightDeltaCount();
+    lw_enc_left_distance = Encoder_getLeftDistance();
+    lw_enc_right_distance = Encoder_getRightDistance();
+    /* USER CODE END Live Watch: Encoders */
+
+    osDelay(10);
+  }
+  /* USER CODE END EncoderTask */
 }
 
 /**
