@@ -27,7 +27,10 @@
                     "lw_imu_gy",
                     "lw_imu_gz",
                     "lw_enc_left_count",
-                    "lw_enc_right_count"
+                    "lw_enc_right_count",
+                    "lw_odom_x",
+                    "lw_odom_y",
+                    "lw_odom_v"
                 ]
             }
         }

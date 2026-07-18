@@ -27,6 +27,7 @@
 #include "usbd_cdc_if.h"
 #include "encoders.h"
 #include "DRV8251A.h"
+#include "odometry.h"
 #include <stdio.h>
 
 /* LIS2MDL is unpopulated/faulty on this board revision (I2C NACK, see PB6/PB7).
@@ -84,6 +85,13 @@ const osThreadAttr_t MainMotorDriver_attributes = {
   .stack_size = 256 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
+/* Definitions for OdomHandler */
+osThreadId_t OdomHandlerHandle;
+const osThreadAttr_t OdomHandler_attributes = {
+  .name = "OdomHandler",
+  .stack_size = 256 * 4,
+  .priority = (osPriority_t) osPriorityHigh7,
+};
 /* USER CODE BEGIN PV */
 
 /* Temporary Live Watch variables for verifying sensor readings.
@@ -95,6 +103,10 @@ volatile float lw_imu_temp;
 volatile int32_t lw_enc_left_count, lw_enc_right_count;
 volatile int16_t lw_enc_left_delta, lw_enc_right_delta;
 volatile float lw_enc_left_distance, lw_enc_right_distance;
+
+/* Odometry (odom frame, SI units) for Live Watch verification. */
+volatile float lw_odom_x, lw_odom_y, lw_odom_theta;
+volatile float lw_odom_v, lw_odom_omega;
 
 /* USER CODE END PV */
 
@@ -109,6 +121,7 @@ static void MX_TIM3_Init(void);
 void IMUTask(void *argument);
 void EncoderTask(void *argument);
 void MainMotorTask(void *argument);
+void OdomTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -193,6 +206,9 @@ int main(void)
 
   /* creation of MainMotorDriver */
   MainMotorDriverHandle = osThreadNew(MainMotorTask, NULL, &MainMotorDriver_attributes);
+
+  /* creation of OdomHandler */
+  OdomHandlerHandle = osThreadNew(OdomTask, NULL, &OdomHandler_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -676,6 +692,44 @@ void MainMotorTask(void *argument)
     osDelay(TEST_STEP_MS);
   }
   /* USER CODE END MainMotorTask */
+}
+
+/* USER CODE BEGIN Header_OdomTask */
+/**
+* @brief Function implementing the OdomHandler thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_OdomTask */
+void OdomTask(void *argument)
+{
+  /* USER CODE BEGIN OdomTask */
+  /* Fixed 50 Hz odometry update. dt is constant because we pace the loop with
+     osDelayUntil(), which keeps the integration well-conditioned. */
+  const uint32_t ODOM_PERIOD_MS = 20;
+  const float ODOM_DT_S = ODOM_PERIOD_MS / 1000.0f;
+
+  Odometry_Init();
+
+  uint32_t last_wake = osKernelGetTickCount();
+
+  /* Infinite loop */
+  for(;;)
+  {
+    Odometry_Update(ODOM_DT_S);
+
+    /* Mirror into Live Watch globals for verification (temporary). */
+    const Odometry_t *o = Odometry_Get();
+    lw_odom_x     = o->x;
+    lw_odom_y     = o->y;
+    lw_odom_theta = o->theta;
+    lw_odom_v     = o->v;
+    lw_odom_omega = o->omega;
+
+    last_wake += ODOM_PERIOD_MS;
+    osDelayUntil(last_wake);
+  }
+  /* USER CODE END OdomTask */
 }
 
 /**
