@@ -1,6 +1,19 @@
 #include "DRV8251A.h"
+#include "odometry.h"   /* WHEEL_BASE_MM */
+
+#include <math.h>
 
 extern TIM_HandleTypeDef htim3;
+
+/* Wheel base in meters (shared with odometry). */
+#define WHEEL_BASE_M (WHEEL_BASE_MM / 1000.0f)
+
+/*
+ * Open-loop scaling: wheel linear speed that corresponds to full duty (255).
+ * This is an approximate no-load top speed; tune once measured. Until closed-
+ * loop PID is added, commanded velocities are simply clamped/scaled to this.
+ */
+#define MOTOR_MAX_LINEAR_SPEED_MPS 0.5f
 
 // Enable the driver (wake)
 void MotorDriver_Enable(void) {
@@ -118,6 +131,35 @@ static inline uint16_t mapSpeedToPWM(uint8_t speed) {
 
     // Scale 0–255 to 0–MOTOR_PWM_MAX
     return (uint16_t)((speed * MOTOR_PWM_MAX) / MOTOR_SPEED_MAX);
+}
+
+// Convert a wheel linear speed [m/s] to a signed 0..255 magnitude + sign.
+static uint8_t wheelSpeedToMagnitude(float wheel_mps) {
+
+    float ratio = fabsf(wheel_mps) / MOTOR_MAX_LINEAR_SPEED_MPS;
+    if (ratio > 1.0f) ratio = 1.0f;
+    return (uint8_t)(ratio * MOTOR_SPEED_MAX);
+}
+
+// Open-loop body-twist command (diff-drive inverse kinematics).
+void MotorDriver_SetTwist(float v, float omega) {
+
+    // Per-wheel linear speeds [m/s].
+    float left_mps  = v - (omega * WHEEL_BASE_M * 0.5f);
+    float right_mps = v + (omega * WHEEL_BASE_M * 0.5f);
+
+    uint16_t left_pwm  = mapSpeedToPWM(wheelSpeedToMagnitude(left_mps));
+    uint16_t right_pwm = mapSpeedToPWM(wheelSpeedToMagnitude(right_mps));
+
+    // Left wheel direction.
+    if (left_pwm == 0)        LeftMotor_Stop();
+    else if (left_mps >= 0.0f) LeftMotor_Forward(left_pwm);
+    else                       LeftMotor_Backward(left_pwm);
+
+    // Right wheel direction.
+    if (right_pwm == 0)         RightMotor_Stop();
+    else if (right_mps >= 0.0f) RightMotor_Forward(right_pwm);
+    else                        RightMotor_Backward(right_pwm);
 }
 
 // ================= HELPER FUNCTIONS for Forward and Backward runs =================

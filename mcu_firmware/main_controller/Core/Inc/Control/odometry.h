@@ -32,17 +32,20 @@ typedef struct {
 
 } Odometry_t;
 
-/* Reset pose/twist to zero and re-sync with the encoder driver. */
-void Odometry_Init(void);
-void Odometry_Reset(void);
+/*
+ * Reset pose/twist to zero and seed the previous wheel distances.
+ *   left_m, right_m: current cumulative wheel travel, in meters.
+ */
+void Odometry_Init(float left_m, float right_m);
+void Odometry_Reset(float left_m, float right_m);
 
 /*
  * Advance the odometry by one step.
- *   dt_s: elapsed time since the previous update, in seconds.
- * Reads the latest encoder distances internally, so Encoders_Update() must be
- * called (by the encoder task) at a rate >= the odometry update rate.
+ *   left_m, right_m: latest cumulative wheel travel, in meters (from the
+ *                    EncoderQueue sample).
+ *   dt_s:            elapsed time since the previous update, in seconds.
  */
-void Odometry_Update(float dt_s);
+void Odometry_Update(float left_m, float right_m, float dt_s);
 
 /* Read-only accessor to the latest computed odometry. */
 const Odometry_t *Odometry_Get(void);

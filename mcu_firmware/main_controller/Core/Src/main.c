@@ -28,7 +28,10 @@
 #include "encoders.h"
 #include "DRV8251A.h"
 #include "odometry.h"
+#include "protocol.h"
+#include "usb_bridge.h"
 #include <stdio.h>
+#include <string.h>
 
 /* LIS2MDL is unpopulated/faulty on this board revision (I2C NACK, see PB6/PB7).
    Set to 1 once the IC is replaced and verified. */
@@ -92,21 +95,36 @@ const osThreadAttr_t OdomHandler_attributes = {
   .stack_size = 256 * 4,
   .priority = (osPriority_t) osPriorityHigh7,
 };
+/* Definitions for USBBridge */
+osThreadId_t USBBridgeHandle;
+const osThreadAttr_t USBBridge_attributes = {
+  .name = "USBBridge",
+  .stack_size = 256 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for EncoderQueue */
+osMessageQueueId_t EncoderQueueHandle;
+const osMessageQueueAttr_t EncoderQueue_attributes = {
+  .name = "EncoderQueue"
+};
+/* Definitions for OdomQueue */
+osMessageQueueId_t OdomQueueHandle;
+const osMessageQueueAttr_t OdomQueue_attributes = {
+  .name = "OdomQueue"
+};
+/* Definitions for MotorCMDQueue */
+osMessageQueueId_t MotorCMDQueueHandle;
+const osMessageQueueAttr_t MotorCMDQueue_attributes = {
+  .name = "MotorCMDQueue"
+};
 /* USER CODE BEGIN PV */
 
-/* Temporary Live Watch variables for verifying sensor readings.
-   Remove once dedicated odometry/telemetry tasks are in place. */
+/* IMU has no inter-task queue yet (magnetometer pending), so its readings are
+   still mirrored here for STM32Cube Live Watch during bring-up. Encoder and
+   odometry data now flow through FreeRTOS queues instead of shared globals. */
 volatile float lw_imu_ax, lw_imu_ay, lw_imu_az;
 volatile float lw_imu_gx, lw_imu_gy, lw_imu_gz;
 volatile float lw_imu_temp;
-
-volatile int32_t lw_enc_left_count, lw_enc_right_count;
-volatile int16_t lw_enc_left_delta, lw_enc_right_delta;
-volatile float lw_enc_left_distance, lw_enc_right_distance;
-
-/* Odometry (odom frame, SI units) for Live Watch verification. */
-volatile float lw_odom_x, lw_odom_y, lw_odom_theta;
-volatile float lw_odom_v, lw_odom_omega;
 
 /* USER CODE END PV */
 
@@ -122,6 +140,7 @@ void IMUTask(void *argument);
 void EncoderTask(void *argument);
 void MainMotorTask(void *argument);
 void OdomTask(void *argument);
+void MCU_RPI_Bridge(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -193,6 +212,16 @@ int main(void)
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
 
+  /* Create the queue(s) */
+  /* creation of EncoderQueue */
+  EncoderQueueHandle = osMessageQueueNew (8, sizeof(EncoderSample_t), &EncoderQueue_attributes);
+
+  /* creation of OdomQueue */
+  OdomQueueHandle = osMessageQueueNew (8, sizeof(Odometry_t), &OdomQueue_attributes);
+
+  /* creation of MotorCMDQueue */
+  MotorCMDQueueHandle = osMessageQueueNew (8, sizeof(CmdVelPayload), &MotorCMDQueue_attributes);
+
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
@@ -209,6 +238,9 @@ int main(void)
 
   /* creation of OdomHandler */
   OdomHandlerHandle = osThreadNew(OdomTask, NULL, &OdomHandler_attributes);
+
+  /* creation of USBBridge */
+  USBBridgeHandle = osThreadNew(MCU_RPI_Bridge, NULL, &USBBridge_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -640,21 +672,30 @@ void EncoderTask(void *argument)
   /* USER CODE BEGIN EncoderTask */
   Encoders_Init();
 
+  const uint32_t ENC_PERIOD_MS = 10;   /* 100 Hz */
+  uint32_t last_wake = osKernelGetTickCount();
+
   /* Infinite loop */
   for(;;)
   {
     Encoders_Update();
 
-    /* USER CODE BEGIN Live Watch: Encoders */
-    lw_enc_left_count = Encoder_getLeftCount();
-    lw_enc_right_count = Encoder_getRightCount();
-    lw_enc_left_delta = Encoder_getLeftDeltaCount();
-    lw_enc_right_delta = Encoder_getRightDeltaCount();
-    lw_enc_left_distance = Encoder_getLeftDistance();
-    lw_enc_right_distance = Encoder_getRightDistance();
-    /* USER CODE END Live Watch: Encoders */
+    /* Publish cumulative wheel travel (cm -> m) to the odometry task.
+       Overwrite the oldest sample if the queue is somehow full so we never
+       block the encoder loop. */
+    EncoderSample_t sample = {
+      .left_m  = Encoder_getLeftDistance()  / 100.0f,
+      .right_m = Encoder_getRightDistance() / 100.0f,
+    };
+    if (osMessageQueuePut(EncoderQueueHandle, &sample, 0U, 0U) == osErrorResource)
+    {
+      EncoderSample_t drop;
+      (void)osMessageQueueGet(EncoderQueueHandle, &drop, NULL, 0U);
+      (void)osMessageQueuePut(EncoderQueueHandle, &sample, 0U, 0U);
+    }
 
-    osDelay(10);
+    last_wake += ENC_PERIOD_MS;
+    osDelayUntil(last_wake);
   }
   /* USER CODE END EncoderTask */
 }
@@ -669,27 +710,27 @@ void EncoderTask(void *argument)
 void MainMotorTask(void *argument)
 {
   /* USER CODE BEGIN MainMotorTask */
-  /* Temporary forward/backward smoke test.
-     Replace with ROS2/Nav2 velocity command handling. */
-  const uint8_t TEST_SPEED = 150;
-  const uint32_t TEST_STEP_MS = 2000;
+  /* Consume body-twist commands (cmd_vel) from the USB bridge and drive the
+     motors open-loop. If no command arrives within CMD_TIMEOUT_MS the base is
+     stopped as a safety measure (lost link / idle Pi). */
+  const uint32_t CMD_TIMEOUT_MS = 500;
 
   MotorDriver_Enable();
+
+  CmdVelPayload cmd = { .v = 0.0f, .omega = 0.0f };
 
   /* Infinite loop */
   for(;;)
   {
-    MotorForward_runSpeed(TEST_SPEED, TEST_SPEED);
-    osDelay(TEST_STEP_MS);
-
-    MotorForward_runSpeed(0, 0);
-    osDelay(TEST_STEP_MS);
-
-    MotorBackward_runSpeed(TEST_SPEED, TEST_SPEED);
-    osDelay(TEST_STEP_MS);
-
-    MotorForward_runSpeed(0, 0);
-    osDelay(TEST_STEP_MS);
+    if (osMessageQueueGet(MotorCMDQueueHandle, &cmd, NULL, CMD_TIMEOUT_MS) == osOK)
+    {
+      MotorDriver_SetTwist(cmd.v, cmd.omega);
+    }
+    else
+    {
+      /* Timed out waiting for a command -> stop. */
+      MotorDriver_SetTwist(0.0f, 0.0f);
+    }
   }
   /* USER CODE END MainMotorTask */
 }
@@ -704,32 +745,102 @@ void MainMotorTask(void *argument)
 void OdomTask(void *argument)
 {
   /* USER CODE BEGIN OdomTask */
-  /* Fixed 50 Hz odometry update. dt is constant because we pace the loop with
-     osDelayUntil(), which keeps the integration well-conditioned. */
-  const uint32_t ODOM_PERIOD_MS = 20;
-  const float ODOM_DT_S = ODOM_PERIOD_MS / 1000.0f;
+  const float TICK_S = 1.0f / (float)osKernelGetTickFreq();
 
-  Odometry_Init();
+  /* Wait for the first encoder sample to seed the previous-distance state. */
+  EncoderSample_t sample;
+  osMessageQueueGet(EncoderQueueHandle, &sample, NULL, osWaitForever);
+  Odometry_Init(sample.left_m, sample.right_m);
 
-  uint32_t last_wake = osKernelGetTickCount();
+  uint32_t last_tick = osKernelGetTickCount();
 
   /* Infinite loop */
   for(;;)
   {
-    Odometry_Update(ODOM_DT_S);
+    /* Block until the encoder task publishes a fresh sample. */
+    if (osMessageQueueGet(EncoderQueueHandle, &sample, NULL, osWaitForever) != osOK)
+      continue;
 
-    /* Mirror into Live Watch globals for verification (temporary). */
+    uint32_t now = osKernelGetTickCount();
+    float dt_s = (float)(now - last_tick) * TICK_S;
+    last_tick = now;
+
+    Odometry_Update(sample.left_m, sample.right_m, dt_s);
+
+    /* Publish the latest pose/twist to the USB bridge. Keep only the newest:
+       drop the stale sample if the consumer fell behind. */
     const Odometry_t *o = Odometry_Get();
-    lw_odom_x     = o->x;
-    lw_odom_y     = o->y;
-    lw_odom_theta = o->theta;
-    lw_odom_v     = o->v;
-    lw_odom_omega = o->omega;
-
-    last_wake += ODOM_PERIOD_MS;
-    osDelayUntil(last_wake);
+    if (osMessageQueuePut(OdomQueueHandle, o, 0U, 0U) == osErrorResource)
+    {
+      Odometry_t drop;
+      (void)osMessageQueueGet(OdomQueueHandle, &drop, NULL, 0U);
+      (void)osMessageQueuePut(OdomQueueHandle, o, 0U, 0U);
+    }
   }
   /* USER CODE END OdomTask */
+}
+
+/* USER CODE BEGIN Header_MCU_RPI_Bridge */
+/**
+* @brief Function implementing the USBBridge thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_MCU_RPI_Bridge */
+void MCU_RPI_Bridge(void *argument)
+{
+  /* USER CODE BEGIN MCU_RPI_Bridge */
+  ProtocolParser parser;
+  Protocol_ParserInit(&parser);
+
+  /* Infinite loop */
+  for(;;)
+  {
+    /* --- TX: forward the latest odometry to the Pi (non-blocking). --- */
+    Odometry_t odom;
+    if (osMessageQueueGet(OdomQueueHandle, &odom, NULL, 0U) == osOK)
+    {
+      OdometryPayload op = {
+        .x     = odom.x,
+        .y     = odom.y,
+        .theta = odom.theta,
+        .v     = odom.v,
+        .omega = odom.omega,
+      };
+      USBBridge_SendFrame(MSG_ODOMETRY, &op, sizeof(op));
+    }
+
+    /* --- RX: parse any bytes received from the Pi. --- */
+    uint8_t byte;
+    while (USBBridge_RxPop(&byte))
+    {
+      uint8_t type;
+      uint8_t payload[PROTOCOL_MAX_PAYLOAD];
+      uint8_t len;
+
+      if (Protocol_ParseByte(&parser, byte, &type, payload, sizeof(payload), &len))
+      {
+        if (type == MSG_CMD_VEL && len == sizeof(CmdVelPayload))
+        {
+          CmdVelPayload cmd;
+          memcpy(&cmd, payload, sizeof(cmd));
+
+          /* Deliver the newest command; drop a stale one if the motor task
+             hasn't consumed it yet. */
+          if (osMessageQueuePut(MotorCMDQueueHandle, &cmd, 0U, 0U) == osErrorResource)
+          {
+            CmdVelPayload drop;
+            (void)osMessageQueueGet(MotorCMDQueueHandle, &drop, NULL, 0U);
+            (void)osMessageQueuePut(MotorCMDQueueHandle, &cmd, 0U, 0U);
+          }
+        }
+      }
+    }
+
+    /* ~1 kHz service rate: fast enough to keep RX latency low while yielding. */
+    osDelay(1);
+  }
+  /* USER CODE END MCU_RPI_Bridge */
 }
 
 /**

@@ -1,5 +1,4 @@
 #include "odometry.h"
-#include "encoders.h"
 
 #include <math.h>
 
@@ -10,9 +9,8 @@
 static Odometry_t odom;
 
 /*
- * Previous cumulative wheel distances (in meters). The encoder driver exposes
- * cumulative distance in cm; we keep the previous sample here to form the
- * per-step increment.
+ * Previous cumulative wheel distances (in meters). Kept to form the per-step
+ * increment from successive EncoderQueue samples.
  */
 static float prev_left_m;
 static float prev_right_m;
@@ -25,7 +23,7 @@ static float wrap_pi(float angle)
     return angle;
 }
 
-void Odometry_Reset(void)
+void Odometry_Reset(float left_m, float right_m)
 {
     odom.x     = 0.0f;
     odom.y     = 0.0f;
@@ -33,22 +31,17 @@ void Odometry_Reset(void)
     odom.v     = 0.0f;
     odom.omega = 0.0f;
 
-    /* Encoder distances are in cm -> meters. */
-    prev_left_m  = Encoder_getLeftDistance()  / 100.0f;
-    prev_right_m = Encoder_getRightDistance() / 100.0f;
+    prev_left_m  = left_m;
+    prev_right_m = right_m;
 }
 
-void Odometry_Init(void)
+void Odometry_Init(float left_m, float right_m)
 {
-    Odometry_Reset();
+    Odometry_Reset(left_m, right_m);
 }
 
-void Odometry_Update(float dt_s)
+void Odometry_Update(float left_m, float right_m, float dt_s)
 {
-    /* Current cumulative wheel travel in meters. */
-    const float left_m  = Encoder_getLeftDistance()  / 100.0f;
-    const float right_m = Encoder_getRightDistance() / 100.0f;
-
     /* Per-step increments. */
     const float d_left  = left_m  - prev_left_m;
     const float d_right = right_m - prev_right_m;

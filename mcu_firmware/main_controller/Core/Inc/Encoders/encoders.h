@@ -17,7 +17,7 @@
 
 // Encoder data structure
 typedef struct {
-    
+
     // Required variables
     float distance;
     int32_t count;
@@ -26,6 +26,13 @@ typedef struct {
 
     int8_t encoder_polarity; // Direction polarity: 1 or -1
 } Encoder_t;
+
+// Cumulative wheel travel sample passed from Encoder_Handler -> OdomHandler
+// via EncoderQueue. Distances are in meters.
+typedef struct {
+    float left_m;
+    float right_m;
+} EncoderSample_t;
 
 // Function prototypes
 void Encoders_Init(void);

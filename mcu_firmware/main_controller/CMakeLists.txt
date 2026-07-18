@@ -51,6 +51,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/Motors/DifferentialDrive/DRV8251A.c
     Core/Src/Control/PID.c
     Core/Src/Control/odometry.c
+    Core/Src/Comms/protocol.c
+    Core/Src/Comms/usb_bridge.c
 )
 
 # Add include paths
@@ -61,6 +63,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Inc/Encoders
     Core/Inc/Motors/DifferentialDrive
     Core/Inc/Control
+    Core/Inc/Comms
 )
 
 # Add project symbols (macros)
