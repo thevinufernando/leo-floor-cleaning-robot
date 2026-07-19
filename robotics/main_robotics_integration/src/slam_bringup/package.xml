@@ -18,6 +18,8 @@
   <exec_depend>mcu_bridge</exec_depend>
   <exec_depend>robot_description</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>teleop_twist_keyboard</exec_depend>
+  <exec_depend>nav2_map_server</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

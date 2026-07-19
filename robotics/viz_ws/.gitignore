@@ -1,0 +1,13 @@
+# Colcon workspace build artifacts — machine-specific, never commit
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+
+# Editor/OS cruft
+.vscode/
+*.swp
+.DS_Store
