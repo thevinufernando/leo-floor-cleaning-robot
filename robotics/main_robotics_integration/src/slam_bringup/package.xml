@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>slam_bringup</name>
+  <version>0.1.0</version>
+  <description>
+    Online asynchronous slam_toolbox bringup for the autonomous cleaning
+    robot. Provides the mapper parameters and launch files that wire the
+    LiDAR, wheel odometry (mcu_bridge) and robot TF into slam_toolbox.
+  </description>
+
+  <maintainer email="thevinuworks1@gmail.com">thevinufpi</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>slam_toolbox</exec_depend>
+  <exec_depend>lidar_bringup</exec_depend>
+  <exec_depend>mcu_bridge</exec_depend>
+  <exec_depend>robot_description</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

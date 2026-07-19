@@ -25,9 +25,10 @@
   <xacro:property name="wheel_mass"      value="0.040"/>
 
   <!-- Distance between the centres of the two drive wheels (track width).
-       TODO: measure this directly on the robot == it must match wheel placement
-       on the actual chassis for odometry to be accurate. -->
-  <xacro:property name="wheel_separation" value="0.290"/>
+       Must match the MCU firmware's diff-drive wheel base (263 mm, per
+       PROTOCOL.md) — the MCU computes odometry from encoders using that
+       value, so keep the URDF consistent with it. -->
+  <xacro:property name="wheel_separation" value="0.263"/>
 
   <!-- Fore/aft offset of the wheel axle from the chassis centre (base_link).
        0.0 = wheels mounted on the robot's centreline (typical for a round

@@ -1,26 +1,41 @@
-"""ROS 2 node bridging the Pi and the STM32F722RET6 MCU over USB CDC."""
+"""
+ROS 2 node bridging the Pi and the STM32F722 MCU over USB CDC.
 
-from geometry_msgs.msg import Twist
-from mcu_bridge.imu_text_parser import parse_imu_line
-from mcu_bridge.protocol import encode_cmd_velocity
+Consumes the MCU's binary MSG_ODOMETRY stream and publishes it as a
+``nav_msgs/Odometry`` message plus the ``odom`` -> ``base_link`` TF, and
+forwards ``cmd_vel`` (``geometry_msgs/Twist``) to the MCU as MSG_CMD_VEL.
+
+The odometry + odom->base_link TF this node publishes is a prerequisite for
+running slam_toolbox in online asynchronous mode: slam_toolbox provides
+map->odom, but expects odom->base_link to already exist.
+"""
+
+import math
+
+from geometry_msgs.msg import Quaternion, TransformStamped, Twist
+from mcu_bridge.protocol import (
+    decode_odometry,
+    encode_cmd_vel,
+    FrameDecoder,
+    MsgType,
+)
+from nav_msgs.msg import Odometry
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Imu
 import serial
+from tf2_ros import TransformBroadcaster
 
-# Orientation is not measured on-board (no fusion/EKF on the MCU yet), so
-# Imu.orientation is left at all-zero with covariance[0] = -1 per the
-# sensor_msgs/Imu convention meaning "orientation data is not available".
-ORIENTATION_UNKNOWN_COVARIANCE = -1.0
 
-# Rough placeholder covariances for the ICM-42688-P, until characterized
-# from real datasheet/Allan-variance figures.
-ACCEL_COVARIANCE_DIAG = 0.02   # (m/s^2)^2
-GYRO_COVARIANCE_DIAG = 0.001   # (rad/s)^2
+def yaw_to_quaternion(yaw: float) -> Quaternion:
+    """Build a quaternion from a yaw-only (planar) rotation."""
+    q = Quaternion()
+    q.z = math.sin(yaw * 0.5)
+    q.w = math.cos(yaw * 0.5)
+    return q
 
 
 class McuBridgeNode(Node):
-    """Publishes IMU telemetry from, and forwards cmd_vel to, the MCU."""
+    """Publishes odometry from, and forwards cmd_vel to, the MCU."""
 
     def __init__(self):
         """Open the serial port and set up publishers/subscriptions."""
@@ -28,28 +43,45 @@ class McuBridgeNode(Node):
 
         self.declare_parameter('port', '/dev/mcu')
         self.declare_parameter('baudrate', 115200)
-        self.declare_parameter('imu_frame_id', 'imu_link')
+        self.declare_parameter('odom_frame_id', 'odom')
+        self.declare_parameter('base_frame_id', 'base_link')
+        self.declare_parameter('publish_tf', True)
+        # Wheel-only odometry: trust x/y/yaw modestly, and yaw least of all so
+        # slam_toolbox leans on its scan match. Diagonal [x, y, yaw].
+        self.declare_parameter('pose_covariance_diagonal', [0.05, 0.05, 0.2])
+        self.declare_parameter('twist_covariance_diagonal', [0.05, 0.05, 0.2])
 
         port = self.get_parameter('port').get_parameter_value().string_value
         baudrate = self.get_parameter('baudrate').get_parameter_value().integer_value
-        self._imu_frame_id = self.get_parameter('imu_frame_id').get_parameter_value().string_value
+        self._odom_frame = self.get_parameter(
+            'odom_frame_id').get_parameter_value().string_value
+        self._base_frame = self.get_parameter(
+            'base_frame_id').get_parameter_value().string_value
+        self._publish_tf = self.get_parameter(
+            'publish_tf').get_parameter_value().bool_value
+        self._pose_cov_diag = list(self.get_parameter(
+            'pose_covariance_diagonal').get_parameter_value().double_array_value)
+        self._twist_cov_diag = list(self.get_parameter(
+            'twist_covariance_diagonal').get_parameter_value().double_array_value)
 
         self._serial = serial.Serial(port, baudrate, timeout=0)
-        self._rx_buffer = bytearray()
+        self._decoder = FrameDecoder()
         self.get_logger().info(f'Opened serial port {port} @ {baudrate} baud')
 
-        self._imu_pub = self.create_publisher(Imu, 'imu/data', 10)
+        self._odom_pub = self.create_publisher(Odometry, 'odom', 10)
+        self._tf_broadcaster = TransformBroadcaster(self)
         self._sub = self.create_subscription(
             Twist, 'cmd_vel', self._on_cmd_vel, 10)
 
-        # The MCU currently streams IMU debug text at 10 Hz (see firmware
-        # README); poll faster than that so lines don't pile up in the OS
-        # serial buffer.
-        self._read_timer = self.create_timer(0.02, self._on_read_timer)
+        # MCU streams MSG_ODOMETRY at ~50 Hz; poll comfortably faster so
+        # frames don't pile up in the OS serial buffer.
+        self._read_timer = self.create_timer(0.01, self._on_read_timer)
 
     def _on_cmd_vel(self, msg: Twist):
-        frame = encode_cmd_velocity(msg.linear.x, msg.angular.z)
-        self._serial.write(frame)
+        try:
+            self._serial.write(encode_cmd_vel(msg.linear.x, msg.angular.z))
+        except serial.SerialException as exc:
+            self.get_logger().error(f'Serial write failed: {exc}')
 
     def _on_read_timer(self):
         try:
@@ -61,41 +93,50 @@ class McuBridgeNode(Node):
         if not data:
             return
 
-        self._rx_buffer.extend(data)
-        while b'\n' in self._rx_buffer:
-            line, _, rest = self._rx_buffer.partition(b'\n')
-            self._rx_buffer = bytearray(rest)
-            self._handle_line(line.decode('ascii', errors='replace'))
+        for msg_type, payload in self._decoder.feed(data):
+            if msg_type == MsgType.ODOMETRY:
+                self._handle_odometry(payload)
 
-    def _handle_line(self, line: str):
-        parsed = parse_imu_line(line)
-        if parsed is None:
+    def _handle_odometry(self, payload: bytes):
+        try:
+            x, y, theta, v, omega = decode_odometry(payload)
+        except ValueError as exc:
+            self.get_logger().warn(f'Bad odometry frame: {exc}')
             return
-        ax, ay, az, gx, gy, gz, _temp_c = parsed
-        self._publish_imu(ax, ay, az, gx, gy, gz)
 
-    def _publish_imu(self, ax, ay, az, gx, gy, gz):
-        msg = Imu()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.header.frame_id = self._imu_frame_id
+        stamp = self.get_clock().now().to_msg()
+        orientation = yaw_to_quaternion(theta)
 
-        msg.orientation_covariance[0] = ORIENTATION_UNKNOWN_COVARIANCE
+        odom = Odometry()
+        odom.header.stamp = stamp
+        odom.header.frame_id = self._odom_frame
+        odom.child_frame_id = self._base_frame
 
-        msg.linear_acceleration.x = ax
-        msg.linear_acceleration.y = ay
-        msg.linear_acceleration.z = az
-        msg.linear_acceleration_covariance[0] = ACCEL_COVARIANCE_DIAG
-        msg.linear_acceleration_covariance[4] = ACCEL_COVARIANCE_DIAG
-        msg.linear_acceleration_covariance[8] = ACCEL_COVARIANCE_DIAG
+        odom.pose.pose.position.x = x
+        odom.pose.pose.position.y = y
+        odom.pose.pose.orientation = orientation
+        # Pose covariance is a 6x6 row-major [x, y, z, roll, pitch, yaw].
+        odom.pose.covariance[0] = self._pose_cov_diag[0]    # x
+        odom.pose.covariance[7] = self._pose_cov_diag[1]    # y
+        odom.pose.covariance[35] = self._pose_cov_diag[2]   # yaw
 
-        msg.angular_velocity.x = gx
-        msg.angular_velocity.y = gy
-        msg.angular_velocity.z = gz
-        msg.angular_velocity_covariance[0] = GYRO_COVARIANCE_DIAG
-        msg.angular_velocity_covariance[4] = GYRO_COVARIANCE_DIAG
-        msg.angular_velocity_covariance[8] = GYRO_COVARIANCE_DIAG
+        odom.twist.twist.linear.x = v
+        odom.twist.twist.angular.z = omega
+        odom.twist.covariance[0] = self._twist_cov_diag[0]    # vx
+        odom.twist.covariance[7] = self._twist_cov_diag[1]    # vy
+        odom.twist.covariance[35] = self._twist_cov_diag[2]   # vyaw
 
-        self._imu_pub.publish(msg)
+        self._odom_pub.publish(odom)
+
+        if self._publish_tf:
+            tf = TransformStamped()
+            tf.header.stamp = stamp
+            tf.header.frame_id = self._odom_frame
+            tf.child_frame_id = self._base_frame
+            tf.transform.translation.x = x
+            tf.transform.translation.y = y
+            tf.transform.rotation = orientation
+            self._tf_broadcaster.sendTransform(tf)
 
     def destroy_node(self):
         """Close the serial port before tearing down the node."""
