@@ -126,6 +126,23 @@ volatile float lw_imu_ax, lw_imu_ay, lw_imu_az;
 volatile float lw_imu_gx, lw_imu_gy, lw_imu_gz;
 volatile float lw_imu_temp;
 
+/* Temporary Live Watch debug counters/values for tracing MSG_CMD_VEL from
+   "byte arrived over USB" through to "applied in MainMotorTask". Remove once
+   the cmd_vel path is confirmed working end-to-end. */
+volatile uint32_t lw_rx_byte_count;       /* total bytes popped from the USB RX ring */
+volatile uint32_t lw_rx_frame_count;      /* total CRC-valid frames parsed (any type) */
+volatile uint32_t lw_rx_cmdvel_count;     /* CRC-valid MSG_CMD_VEL frames specifically */
+volatile uint8_t  lw_rx_last_type;        /* TYPE byte of the last valid frame */
+volatile uint8_t  lw_rx_last_len;         /* LEN byte of the last valid frame */
+volatile float    lw_cmdvel_v;            /* last decoded CmdVelPayload.v */
+volatile float    lw_cmdvel_omega;        /* last decoded CmdVelPayload.omega */
+volatile uint8_t  lw_cmdvel_raw[8];        /* raw payload bytes, pre-decode, for hex inspection */
+volatile uint32_t lw_motorcmd_put_count;  /* MotorCMDQueue puts by USBBridge */
+volatile uint32_t lw_motorcmd_get_count;  /* MotorCMDQueue gets by MainMotorTask (osOK) */
+volatile uint32_t lw_motorcmd_timeout_count; /* MainMotorTask queue-get timeouts */
+volatile float    lw_motor_applied_v;     /* v actually passed to MotorDriver_SetTwist */
+volatile float    lw_motor_applied_omega; /* omega actually passed to MotorDriver_SetTwist */
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -223,7 +240,17 @@ int main(void)
   MotorCMDQueueHandle = osMessageQueueNew (8, sizeof(CmdVelPayload), &MotorCMDQueue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
-  /* add queues, ... */
+  /* Guard against CubeMX regenerating the queues with the placeholder element
+     type (uint16_t): if the .ioc queue types are lost, the element size no
+     longer matches the structs we put/get and motor commands are silently
+     corrupted. Fail loudly here instead. */
+  configASSERT(EncoderQueueHandle  != NULL);
+  configASSERT(OdomQueueHandle     != NULL);
+  configASSERT(MotorCMDQueueHandle != NULL);
+  configASSERT(osMessageQueueGetCapacity(MotorCMDQueueHandle) > 0U);
+  configASSERT(osMessageQueueGetMsgSize(MotorCMDQueueHandle) == sizeof(CmdVelPayload));
+  configASSERT(osMessageQueueGetMsgSize(EncoderQueueHandle)  == sizeof(EncoderSample_t));
+  configASSERT(osMessageQueueGetMsgSize(OdomQueueHandle)     == sizeof(Odometry_t));
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -527,7 +554,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 2399;
+  htim3.Init.Period = 4799;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
@@ -724,11 +751,17 @@ void MainMotorTask(void *argument)
   {
     if (osMessageQueueGet(MotorCMDQueueHandle, &cmd, NULL, CMD_TIMEOUT_MS) == osOK)
     {
+      lw_motorcmd_get_count++;
+      lw_motor_applied_v     = cmd.v;
+      lw_motor_applied_omega = cmd.omega;
       MotorDriver_SetTwist(cmd.v, cmd.omega);
     }
     else
     {
       /* Timed out waiting for a command -> stop. */
+      lw_motorcmd_timeout_count++;
+      lw_motor_applied_v     = 0.0f;
+      lw_motor_applied_omega = 0.0f;
       MotorDriver_SetTwist(0.0f, 0.0f);
     }
   }
@@ -814,16 +847,27 @@ void MCU_RPI_Bridge(void *argument)
     uint8_t byte;
     while (USBBridge_RxPop(&byte))
     {
+      lw_rx_byte_count++;
+
       uint8_t type;
       uint8_t payload[PROTOCOL_MAX_PAYLOAD];
       uint8_t len;
 
       if (Protocol_ParseByte(&parser, byte, &type, payload, sizeof(payload), &len))
       {
+        lw_rx_frame_count++;
+        lw_rx_last_type = type;
+        lw_rx_last_len  = len;
+
         if (type == MSG_CMD_VEL && len == sizeof(CmdVelPayload))
         {
           CmdVelPayload cmd;
           memcpy(&cmd, payload, sizeof(cmd));
+
+          lw_rx_cmdvel_count++;
+          memcpy((void *)lw_cmdvel_raw, payload, sizeof(lw_cmdvel_raw));
+          lw_cmdvel_v     = cmd.v;
+          lw_cmdvel_omega = cmd.omega;
 
           /* Deliver the newest command; drop a stale one if the motor task
              hasn't consumed it yet. */
@@ -833,6 +877,7 @@ void MCU_RPI_Bridge(void *argument)
             (void)osMessageQueueGet(MotorCMDQueueHandle, &drop, NULL, 0U);
             (void)osMessageQueuePut(MotorCMDQueueHandle, &cmd, 0U, 0U);
           }
+          lw_motorcmd_put_count++;
         }
       }
     }

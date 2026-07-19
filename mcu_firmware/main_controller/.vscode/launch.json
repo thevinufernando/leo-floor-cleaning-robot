@@ -23,14 +23,13 @@
             "liveWatch": {
                 "enabled": true,
                 "expressions": [
-                    "lw_imu_gx",
-                    "lw_imu_gy",
-                    "lw_imu_gz",
-                    "lw_enc_left_count",
-                    "lw_enc_right_count",
-                    "lw_odom_x",
-                    "lw_odom_y",
-                    "lw_odom_v"
+                    "lw_rx_byte_count",
+                    "lw_rx_frame_count",
+                    "lw_rx_cmdvel_count",
+                    "lw_rx_last_type",
+                    "lw_rx_last_len",
+                    "lw_cmdvel_raw",
+                    "lw_cmdvel_v"
                 ]
             }
         }

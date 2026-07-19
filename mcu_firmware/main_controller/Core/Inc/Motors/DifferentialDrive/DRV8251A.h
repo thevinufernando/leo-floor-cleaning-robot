@@ -3,7 +3,7 @@
 
 #include "main.h"
 
-#define MOTOR_PWM_MAX 2399
+#define MOTOR_PWM_MAX 4799
 #define MOTOR_SPEED_MAX 255
 
 void MotorDriver_Enable(void);
