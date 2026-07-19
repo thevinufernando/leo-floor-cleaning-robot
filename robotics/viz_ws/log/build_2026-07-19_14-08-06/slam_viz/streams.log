@@ -1,0 +1,43 @@
+[0.010s] Invoking command in '/home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/build/slam_viz': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/src/slam_viz -DCMAKE_INSTALL_PREFIX=/home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz
+[0.108s] -- The C compiler identification is GNU 13.3.0
+[0.205s] -- The CXX compiler identification is GNU 13.3.0
+[0.234s] -- Detecting C compiler ABI info
+[0.393s] -- Detecting C compiler ABI info - done
+[0.408s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.409s] -- Detecting C compile features
+[0.409s] -- Detecting C compile features - done
+[0.423s] -- Detecting CXX compiler ABI info
+[0.592s] -- Detecting CXX compiler ABI info - done
+[0.609s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.609s] -- Detecting CXX compile features
+[0.610s] -- Detecting CXX compile features - done
+[0.613s] -- Found ament_cmake: 2.5.6 (/opt/ros/jazzy/share/ament_cmake/cmake)
+[0.820s] -- Found Python3: /usr/bin/python3 (found version "3.12.3") found components: Interpreter 
+[1.201s] -- Configuring done (1.2s)
+[1.206s] -- Generating done (0.0s)
+[1.210s] -- Build files have been written to: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/build/slam_viz
+[1.218s] Invoked command in '/home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/build/slam_viz' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/src/slam_viz -DCMAKE_INSTALL_PREFIX=/home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz
+[1.220s] Invoking command in '/home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/build/slam_viz': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --build /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/build/slam_viz -- -j4 -l4
+[1.287s] Invoked command in '/home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/build/slam_viz' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --build /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/build/slam_viz -- -j4 -l4
+[1.305s] Invoking command in '/home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/build/slam_viz': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --install /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/build/slam_viz
+[1.318s] -- Install configuration: ""
+[1.318s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/launch
+[1.318s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/launch/slam_view.launch.py
+[1.318s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/rviz
+[1.318s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/rviz/slam_view.rviz
+[1.319s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/ament_index/resource_index/package_run_dependencies/slam_viz
+[1.319s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/ament_index/resource_index/parent_prefix_path/slam_viz
+[1.319s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/environment/ament_prefix_path.sh
+[1.320s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/environment/ament_prefix_path.dsv
+[1.320s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/environment/path.sh
+[1.320s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/environment/path.dsv
+[1.320s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/local_setup.bash
+[1.320s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/local_setup.sh
+[1.320s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/local_setup.zsh
+[1.321s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/local_setup.dsv
+[1.321s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/package.dsv
+[1.321s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/ament_index/resource_index/packages/slam_viz
+[1.321s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/cmake/slam_vizConfig.cmake
+[1.321s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/cmake/slam_vizConfig-version.cmake
+[1.322s] -- Installing: /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/install/slam_viz/share/slam_viz/package.xml
+[1.325s] Invoked command in '/home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/build/slam_viz' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --install /home/thevinufpi/work/projects/leo-floor-cleaning-robot/robotics/viz_ws/build/slam_viz

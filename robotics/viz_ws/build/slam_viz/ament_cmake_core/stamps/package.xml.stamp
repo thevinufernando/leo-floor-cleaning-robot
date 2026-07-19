@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>slam_viz</name>
+  <version>0.1.0</version>
+  <description>
+    RViz-only visualization of the robot's live SLAM map, meant to run on the
+    WSL2 dev machine while the mapping stack (slam_bringup) runs headless on
+    the Pi. Discovers the Pi's topics/TF over the LAN.
+  </description>
+
+  <maintainer email="thevinuworks1@gmail.com">thevinufpi</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>rviz_default_plugins</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
