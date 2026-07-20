@@ -5,10 +5,16 @@
 # from mcu_bridge. slam_toolbox owns map->odom.
 #
 # Frames must match the rest of the stack:
-#   odom_frame  = odom        (mcu_bridge parent TF / nav_msgs/Odometry frame)
-#   base_frame  = base_link   (mcu_bridge child TF)
-#   map_frame   = map         (slam_toolbox output)
-#   scan topic  = /scan       (rplidar_ros, frame_id: laser)
+#   odom_frame  = odom            (mcu_bridge parent TF / Odometry frame)
+#   base_frame  = base_footprint  (mcu_bridge child TF; REP-105 ground
+#                                  projection and the URDF root)
+#   map_frame   = map             (slam_toolbox output)
+#   scan topic  = /scan           (rplidar_ros, frame_id: laser)
+#
+# Full TF chain while mapping:
+#   map -> odom -> base_footprint -> base_link -> laser/imu/...
+#   \____________/  \____________/  \________________________/
+#    slam_toolbox     mcu_bridge         robot_state_publisher
 slam_toolbox:
   ros__parameters:
     # ---- Plugin / solver ----
@@ -22,7 +28,7 @@ slam_toolbox:
     # ---- Frames & topics ----
     odom_frame: odom
     map_frame: map
-    base_frame: base_link
+    base_frame: base_footprint
     scan_topic: /scan
     use_map_saver: true
     mode: mapping   # mapping | localization

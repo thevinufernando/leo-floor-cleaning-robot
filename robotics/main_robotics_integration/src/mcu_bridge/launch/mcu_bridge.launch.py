@@ -18,9 +18,11 @@ def generate_launch_description():
         description='frame_id for the published nav_msgs/Odometry and the '
                     'parent of the broadcast odom->base_link TF')
     base_frame_arg = DeclareLaunchArgument(
-        'base_frame_id', default_value='base_link',
-        description='child_frame_id of the odometry / odom->base_link TF; '
-                    'must match robot_description base_link')
+        'base_frame_id', default_value='base_footprint',
+        description='child_frame_id of the odometry / odom->base_footprint '
+                    'TF. Per REP-105 this is the robot ground projection '
+                    '(the URDF root), not base_link — robot_state_publisher '
+                    'supplies base_footprint->base_link from the URDF.')
     publish_tf_arg = DeclareLaunchArgument(
         'publish_tf', default_value='true',
         description='Broadcast odom->base_link TF. Set false if an external '

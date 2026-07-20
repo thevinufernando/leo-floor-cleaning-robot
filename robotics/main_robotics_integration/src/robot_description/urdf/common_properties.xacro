@@ -59,7 +59,7 @@
   <xacro:property name="lidar_height"    value="0.040"/>
   <xacro:property name="lidar_mass"      value="0.170"/>  <!-- approx. RPLIDAR C1 mass -->
   <xacro:property name="lidar_x_offset"  value="0.0"/>
-  <xacro:property name="lidar_y_offset"  value="0.0"/>
+  <xacro:property name="lidar_y_offset"  value="0.09"/>
   <xacro:property name="lidar_z_offset"  value="${(base_height / 2) + (lidar_height / 2)}"/>
 
   <!-- ================ IMU ================ -->
