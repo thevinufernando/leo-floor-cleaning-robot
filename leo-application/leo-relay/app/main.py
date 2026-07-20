@@ -124,6 +124,23 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
         if role == ROLE_ROBOT:
             room = await rooms.attach_robot(robot_id, websocket)
+            # Notify phones already in the room immediately (don't wait for status tick).
+            presence = {
+                "type": TYPE_STATUS,
+                "robotOnline": True,
+                "connected": True,
+            }
+            if room.last_status:
+                # Preserve last armed bit if we have it.
+                if "armed" in room.last_status:
+                    presence["armed"] = room.last_status["armed"]
+                else:
+                    presence["armed"] = False
+            else:
+                presence["armed"] = False
+            room.last_status = {**(room.last_status or {}), **presence}
+            await room.broadcast_phones(presence)
+            logger.info("robot presence online robot_id=%s phones=%d", robot_id, len(room.phones))
         else:
             room = await rooms.attach_phone(robot_id, websocket)
 
