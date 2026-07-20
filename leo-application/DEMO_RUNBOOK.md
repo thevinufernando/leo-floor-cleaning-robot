@@ -4,6 +4,27 @@ Internet path: **phone ↔ leo-relay (your server) ↔ Pi `leo_cloud_bridge`**.
 
 Firebase is not used for this demo.
 
+## Current deploy (hhhberzerk)
+
+| Item | Value |
+|------|--------|
+| Subdomain | `leo.hhhberzerk.me` |
+| WSS | `wss://leo.hhhberzerk.me/ws` |
+| Health | `https://leo.hhhberzerk.me/health` |
+| Host bind | `127.0.0.1:8088` (8080 taken by Flowise; Nginx proxies to 8088) |
+| Compose | `/home/berzerk/projects/leo-floor-cleaning-robot/leo-application/leo-relay` |
+| MOCK_MAP | `false` |
+
+Token is **not** stored in git. Use the shared secret from the server handoff (phone + Pi must match).
+
+Local Flutter defines file (gitignored): copy  
+[`leo-demo/dart_defines.json.example`](leo-demo/dart_defines.json.example) → `leo-demo/dart_defines.json`, fill in the token, then:
+
+```bash
+cd leo-application/leo-demo
+flutter run --dart-define-from-file=dart_defines.json
+```
+
 ## 1. Server (leo-relay)
 
 **Full server-agent handoff (DNS, Nginx, Docker, TLS, verification):**  
@@ -16,7 +37,8 @@ cp .env.example .env   # set LEO_RELAY_TOKEN
 # MOCK_MAP=true
 
 docker compose up -d --build
-curl http://127.0.0.1:8080/health
+# If host :8080 is taken, map another port (e.g. 8088) and point Nginx at it.
+curl http://127.0.0.1:8088/health   # or :8080 if free
 ```
 
 ### Nginx subdomain
@@ -27,6 +49,9 @@ curl http://127.0.0.1:8080/health
 4. Phone / Pi URL: `wss://leo.YOUR_DOMAIN/ws`
 
 ## 2. Raspberry Pi (ROS 2)
+
+**Full Pi-agent handoff (deps, build, launch, verify):**  
+[`../robotics/main_robotics_integration/src/leo_cloud_bridge/PI_ROS_HANDOFF.md`](../robotics/main_robotics_integration/src/leo_cloud_bridge/PI_ROS_HANDOFF.md)
 
 Build the new package (with your existing workspace):
 
@@ -45,7 +70,7 @@ ros2 launch slam_bringup mapping.launch.py
 
 # B — cloud bridge (outbound WSS + cmd_vel gate)
 ros2 launch leo_cloud_bridge cloud_bridge.launch.py \
-  relay_url:=wss://leo.YOUR_DOMAIN/ws \
+  relay_url:=wss://leo.hhhberzerk.me/ws \
   token:=YOUR_TOKEN
 
 # C — drive so the map grows (note cmd_vel_in)
@@ -87,13 +112,30 @@ flutter run \
 For **production subdomain** (phone anywhere with internet):
 
 ```bash
+flutter run --dart-define-from-file=dart_defines.json
+# or:
 flutter run \
-  --dart-define=LEO_RELAY_URL=wss://leo.YOUR_DOMAIN/ws \
+  --dart-define=LEO_RELAY_URL=wss://leo.hhhberzerk.me/ws \
   --dart-define=LEO_RELAY_TOKEN=YOUR_TOKEN \
   --dart-define=LEO_ROBOT_ID=LEO_001
 ```
 
-App UI: **Connect** → see robot online → **Robot armed** toggle → live SLAM PNG when `/map` updates.
+App UI: **Connect** → Relay OK → (wait for Pi) **Robot online** → **Armed** toggle → live SLAM PNG when `/map` updates.
+
+### App status chips / debugging
+
+| Chip / UI | Meaning |
+|-----------|---------|
+| Relay OK | Phone WebSocket + `welcome` succeeded |
+| Relay error | Connect/welcome/pong failed — see Debug log |
+| Robot offline | Relay up but Pi bridge not joined (or dropped) — **arm locked** |
+| Robot online | Pi `leo_cloud_bridge` connected; arm allowed |
+| Armed / Disarmed | Soft gate on Pi `cmd_vel` |
+| Debug log | Ring buffer + same lines in `flutter run` console |
+
+**Robot offline checklist:** Pi package built? `cloud_bridge.launch.py` running with matching `relay_url` + token? Outbound WSS OK? See [PI_ROS_HANDOFF.md](../robotics/main_robotics_integration/src/leo_cloud_bridge/PI_ROS_HANDOFF.md).
+
+After relay code changes (robot presence notify), redeploy `leo-relay` on the VPS (`docker compose up -d --build`). Phone-only changes hot-reload.
 
 ## 4. Protocol (quick reference)
 
