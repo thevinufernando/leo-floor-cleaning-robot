@@ -1,0 +1,5 @@
+{
+  "LEO_RELAY_URL": "wss://leo.hhhberzerk.me/ws",
+  "LEO_RELAY_TOKEN": "REPLACE_WITH_HANDOFF_TOKEN",
+  "LEO_ROBOT_ID": "LEO_001"
+}
