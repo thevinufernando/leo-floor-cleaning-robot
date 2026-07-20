@@ -1,1 +1,13 @@
 leo-application/leo-frontend/build/
+leo-application/leo-demo/build/
+leo-application/leo-demo/.dart_tool/
+leo-application/leo-demo/.flutter-plugins-dependencies
+leo-application/leo-demo/dart_defines.json
+leo-application/leo-relay/.env
+leo-application/leo-relay/.venv/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+*.iml
