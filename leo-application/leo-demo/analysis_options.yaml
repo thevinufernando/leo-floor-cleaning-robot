@@ -1,0 +1,9 @@
+# This project contains a logical Flutter project structure for a demo.
+# Run `flutter create . --project-name leo_demo --org com.leo` once to
+# generate android/ios platform folders if they are missing.
+
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    prefer_const_constructors: false
