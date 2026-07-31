@@ -63,6 +63,8 @@ void Error_Handler(void);
 #define MAG_INT_GPIO_Port GPIOC
 #define ICM_INT_Pin GPIO_PIN_14
 #define ICM_INT_GPIO_Port GPIOC
+#define SBM_NSLEEP_Pin GPIO_PIN_15
+#define SBM_NSLEEP_GPIO_Port GPIOC
 #define LDM_ENC_CHA_Pin GPIO_PIN_0
 #define LDM_ENC_CHA_GPIO_Port GPIOA
 #define LDM_ENC_CHB_Pin GPIO_PIN_1

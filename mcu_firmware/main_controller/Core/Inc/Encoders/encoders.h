@@ -15,6 +15,28 @@
 
 #define PI 3.14159265358979323846f
 
+/*
+ * Per-wheel distance calibration trim.
+ *
+ * Both wheels share the same nominal geometry (ENCODER_PPR / MOTOR_GEAR_RATIO
+ * / WHEEL_DIAMETER_MM), but real wheels/gearboxes are never perfectly
+ * identical (manufacturing tolerance, tire compression, bearing friction).
+ * A small left/right mismatch here is invisible during pure rotation but
+ * integrates into a steadily growing heading error during straight-line
+ * driving, because Odometry_Update() derives theta from (right - left)
+ * distance. If a straight-line run curves, empirically calibrate these:
+ *
+ *   1. Drive both wheels at the same open-loop PWM for a fixed duration.
+ *   2. Compare Encoder_getLeftDistance() vs Encoder_getRightDistance().
+ *   3. Scale down whichever wheel travelled further, e.g. if left reads 5%
+ *      more than right: ENCODER_LEFT_SCALE = 1.0f, ENCODER_RIGHT_SCALE =
+ *      1.05f (or normalize both against a taped-floor measured distance).
+ *
+ * 1.0f on both means "no correction applied yet" (current default).
+ */
+#define ENCODER_LEFT_SCALE  1.0f
+#define ENCODER_RIGHT_SCALE 1.0f
+
 // Encoder data structure
 typedef struct {
 

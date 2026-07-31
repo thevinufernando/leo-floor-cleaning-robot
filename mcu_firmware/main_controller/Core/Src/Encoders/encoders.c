@@ -51,9 +51,10 @@ void Encoders_Update(void) {
     left_encoder.count += left_encoder.delta_count;
     right_encoder.count += right_encoder.delta_count;
 
-    //Update the traveled distance
-    left_encoder.distance = (((float)left_encoder.count / (MOTOR_GEAR_RATIO * ENCODER_PPR * 4.0f)) * (WHEEL_DIAMETER_MM * PI)) / 10.0f; // in cm
-    right_encoder.distance = (((float)right_encoder.count / (MOTOR_GEAR_RATIO * ENCODER_PPR * 4.0f)) * (WHEEL_DIAMETER_MM * PI)) / 10.0f; // in cm
+    //Update the traveled distance (per-wheel calibration trim applied; see
+    //ENCODER_LEFT_SCALE / ENCODER_RIGHT_SCALE in encoders.h)
+    left_encoder.distance = (((float)left_encoder.count / (MOTOR_GEAR_RATIO * ENCODER_PPR * 4.0f)) * (WHEEL_DIAMETER_MM * PI)) / 10.0f * ENCODER_LEFT_SCALE; // in cm
+    right_encoder.distance = (((float)right_encoder.count / (MOTOR_GEAR_RATIO * ENCODER_PPR * 4.0f)) * (WHEEL_DIAMETER_MM * PI)) / 10.0f * ENCODER_RIGHT_SCALE; // in cm
 }
 
 int32_t Encoder_getLeftCount(void) {

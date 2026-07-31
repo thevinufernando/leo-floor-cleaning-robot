@@ -37,6 +37,14 @@
    Set to 1 once the IC is replaced and verified. */
 #define LIS2MDL_ENABLED 0
 
+/* Headless motor test: drives both wheels forward/backward on a fixed
+   open-loop schedule with NO dependency on USB/cmd_vel from the Pi. Use it
+   to check for a hardware/motor issue independent of the command path, and
+   as the test rig for measuring left/right wheel calibration (see
+   ENCODER_LEFT_SCALE / ENCODER_RIGHT_SCALE in encoders.h). Set to 0 for
+   normal Pi-driven operation -- do not leave this on during SLAM runs. */
+#define MOTOR_HEADLESS_TEST_ENABLED 0
+
 #if LIS2MDL_ENABLED
 #include "LIS2MDL.h"
 #endif
@@ -126,22 +134,16 @@ volatile float lw_imu_ax, lw_imu_ay, lw_imu_az;
 volatile float lw_imu_gx, lw_imu_gy, lw_imu_gz;
 volatile float lw_imu_temp;
 
-/* Temporary Live Watch debug counters/values for tracing MSG_CMD_VEL from
-   "byte arrived over USB" through to "applied in MainMotorTask". Remove once
-   the cmd_vel path is confirmed working end-to-end. */
-volatile uint32_t lw_rx_byte_count;       /* total bytes popped from the USB RX ring */
-volatile uint32_t lw_rx_frame_count;      /* total CRC-valid frames parsed (any type) */
-volatile uint32_t lw_rx_cmdvel_count;     /* CRC-valid MSG_CMD_VEL frames specifically */
-volatile uint8_t  lw_rx_last_type;        /* TYPE byte of the last valid frame */
-volatile uint8_t  lw_rx_last_len;         /* LEN byte of the last valid frame */
-volatile float    lw_cmdvel_v;            /* last decoded CmdVelPayload.v */
-volatile float    lw_cmdvel_omega;        /* last decoded CmdVelPayload.omega */
-volatile uint8_t  lw_cmdvel_raw[8];        /* raw payload bytes, pre-decode, for hex inspection */
-volatile uint32_t lw_motorcmd_put_count;  /* MotorCMDQueue puts by USBBridge */
-volatile uint32_t lw_motorcmd_get_count;  /* MotorCMDQueue gets by MainMotorTask (osOK) */
-volatile uint32_t lw_motorcmd_timeout_count; /* MainMotorTask queue-get timeouts */
-volatile float    lw_motor_applied_v;     /* v actually passed to MotorDriver_SetTwist */
-volatile float    lw_motor_applied_omega; /* omega actually passed to MotorDriver_SetTwist */
+/* Wheel calibration Live Watch variables. Use these to measure a left/right
+   distance-per-tick mismatch: command equal PWM to both wheels (e.g. via
+   MotorDriver_SetTwist(v, 0) or the headless test task) and compare
+   lw_left_distance_cm vs lw_right_distance_cm over the same time window.
+   A steady ratio difference is the ENCODER_LEFT_SCALE / ENCODER_RIGHT_SCALE
+   correction to apply in encoders.h. Remove once wheel calibration is done
+   and trusted. */
+volatile int32_t lw_enc_left_count, lw_enc_right_count;
+volatile float   lw_enc_left_distance_cm, lw_enc_right_distance_cm;
+volatile float   lw_odom_theta;   /* mirrors Odometry_t.theta, rad */
 
 /* USER CODE END PV */
 
@@ -231,13 +233,13 @@ int main(void)
 
   /* Create the queue(s) */
   /* creation of EncoderQueue */
-  EncoderQueueHandle = osMessageQueueNew (8, sizeof(EncoderSample_t), &EncoderQueue_attributes);
+  EncoderQueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &EncoderQueue_attributes);
 
   /* creation of OdomQueue */
-  OdomQueueHandle = osMessageQueueNew (8, sizeof(Odometry_t), &OdomQueue_attributes);
+  OdomQueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &OdomQueue_attributes);
 
   /* creation of MotorCMDQueue */
-  MotorCMDQueueHandle = osMessageQueueNew (8, sizeof(CmdVelPayload), &MotorCMDQueue_attributes);
+  MotorCMDQueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &MotorCMDQueue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* Guard against CubeMX regenerating the queues with the placeholder element
@@ -554,7 +556,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 4799;
+  htim3.Init.Period = 2399;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
@@ -613,6 +615,9 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(SBM_NSLEEP_GPIO_Port, SBM_NSLEEP_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(ICM_NCS_GPIO_Port, ICM_NCS_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pins : MAG_INT_Pin ICM_INT_Pin */
@@ -620,6 +625,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : SBM_NSLEEP_Pin */
+  GPIO_InitStruct.Pin = SBM_NSLEEP_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(SBM_NSLEEP_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : ICM_NCS_Pin */
   GPIO_InitStruct.Pin = ICM_NCS_Pin;
@@ -707,6 +719,13 @@ void EncoderTask(void *argument)
   {
     Encoders_Update();
 
+    /* Live Watch: raw counts + calibrated cm distance per wheel, for
+       measuring a left/right calibration mismatch (see encoders.h). */
+    lw_enc_left_count  = Encoder_getLeftCount();
+    lw_enc_right_count = Encoder_getRightCount();
+    lw_enc_left_distance_cm  = Encoder_getLeftDistance();
+    lw_enc_right_distance_cm = Encoder_getRightDistance();
+
     /* Publish cumulative wheel travel (cm -> m) to the odometry task.
        Overwrite the oldest sample if the queue is somehow full so we never
        block the encoder loop. */
@@ -737,12 +756,47 @@ void EncoderTask(void *argument)
 void MainMotorTask(void *argument)
 {
   /* USER CODE BEGIN MainMotorTask */
+  MotorDriver_Enable();
+
+#if MOTOR_HEADLESS_TEST_ENABLED
+  /*
+   * Headless forward/backward test -- drives both wheels open-loop with no
+   * USB/Pi dependency at all, to isolate hardware/motor issues from the
+   * cmd_vel command path. Also doubles as the wheel-calibration test rig:
+   * both wheels get the *exact same* commanded speed (v, omega=0), so any
+   * left/right difference in lw_enc_left_distance_cm vs
+   * lw_enc_right_distance_cm measured over one FORWARD_MS window is a real
+   * physical/encoder mismatch you can fold into ENCODER_LEFT_SCALE /
+   * ENCODER_RIGHT_SCALE (encoders.h).
+   *
+   * Enable by setting MOTOR_HEADLESS_TEST_ENABLED to 1 below. Disable (0)
+   * for normal cmd_vel-driven operation -- do not leave this on when
+   * running with the Pi/SLAM.
+   */
+  const float    TEST_SPEED_MPS = 0.35f;
+  const uint32_t FORWARD_MS     = 3000;
+  const uint32_t PAUSE_MS       = 1000;
+  const uint32_t BACKWARD_MS    = 3000;
+
+  for(;;)
+  {
+    MotorDriver_SetTwist(+TEST_SPEED_MPS, 0.0f);
+    osDelay(FORWARD_MS);
+
+    MotorDriver_SetTwist(0.0f, 0.0f);
+    osDelay(PAUSE_MS);
+
+    MotorDriver_SetTwist(-TEST_SPEED_MPS, 0.0f);
+    osDelay(BACKWARD_MS);
+
+    MotorDriver_SetTwist(0.0f, 0.0f);
+    osDelay(PAUSE_MS);
+  }
+#else
   /* Consume body-twist commands (cmd_vel) from the USB bridge and drive the
      motors open-loop. If no command arrives within CMD_TIMEOUT_MS the base is
      stopped as a safety measure (lost link / idle Pi). */
   const uint32_t CMD_TIMEOUT_MS = 500;
-
-  MotorDriver_Enable();
 
   CmdVelPayload cmd = { .v = 0.0f, .omega = 0.0f };
 
@@ -751,20 +805,15 @@ void MainMotorTask(void *argument)
   {
     if (osMessageQueueGet(MotorCMDQueueHandle, &cmd, NULL, CMD_TIMEOUT_MS) == osOK)
     {
-      lw_motorcmd_get_count++;
-      lw_motor_applied_v     = cmd.v;
-      lw_motor_applied_omega = cmd.omega;
       MotorDriver_SetTwist(cmd.v, cmd.omega);
     }
     else
     {
       /* Timed out waiting for a command -> stop. */
-      lw_motorcmd_timeout_count++;
-      lw_motor_applied_v     = 0.0f;
-      lw_motor_applied_omega = 0.0f;
       MotorDriver_SetTwist(0.0f, 0.0f);
     }
   }
+#endif /* MOTOR_HEADLESS_TEST_ENABLED */
   /* USER CODE END MainMotorTask */
 }
 
@@ -803,6 +852,7 @@ void OdomTask(void *argument)
     /* Publish the latest pose/twist to the USB bridge. Keep only the newest:
        drop the stale sample if the consumer fell behind. */
     const Odometry_t *o = Odometry_Get();
+    lw_odom_theta = o->theta;   /* Live Watch: watch for drift during a straight-line run */
     if (osMessageQueuePut(OdomQueueHandle, o, 0U, 0U) == osErrorResource)
     {
       Odometry_t drop;
@@ -847,27 +897,16 @@ void MCU_RPI_Bridge(void *argument)
     uint8_t byte;
     while (USBBridge_RxPop(&byte))
     {
-      lw_rx_byte_count++;
-
       uint8_t type;
       uint8_t payload[PROTOCOL_MAX_PAYLOAD];
       uint8_t len;
 
       if (Protocol_ParseByte(&parser, byte, &type, payload, sizeof(payload), &len))
       {
-        lw_rx_frame_count++;
-        lw_rx_last_type = type;
-        lw_rx_last_len  = len;
-
         if (type == MSG_CMD_VEL && len == sizeof(CmdVelPayload))
         {
           CmdVelPayload cmd;
           memcpy(&cmd, payload, sizeof(cmd));
-
-          lw_rx_cmdvel_count++;
-          memcpy((void *)lw_cmdvel_raw, payload, sizeof(lw_cmdvel_raw));
-          lw_cmdvel_v     = cmd.v;
-          lw_cmdvel_omega = cmd.omega;
 
           /* Deliver the newest command; drop a stale one if the motor task
              hasn't consumed it yet. */
@@ -877,7 +916,6 @@ void MCU_RPI_Bridge(void *argument)
             (void)osMessageQueueGet(MotorCMDQueueHandle, &drop, NULL, 0U);
             (void)osMessageQueuePut(MotorCMDQueueHandle, &cmd, 0U, 0U);
           }
-          lw_motorcmd_put_count++;
         }
       }
     }

@@ -17,16 +17,16 @@ extern TIM_HandleTypeDef htim3;
 
 // Enable the driver (wake)
 void MotorDriver_Enable(void) {
-    
+
     //Give some time to wake up
-    HAL_Delay(10); 
+    HAL_Delay(10);
 }
 
 // Disable the driver (sleep)
 void MotorDriver_Disable(void) {
-    
+
     //Give some time to sleep
-    HAL_Delay(10); 
+    HAL_Delay(10);
 }
 
 // Helper function to map speed (0-255) to PWM value
