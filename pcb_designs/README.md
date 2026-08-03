@@ -30,9 +30,11 @@ The two boards connect to each other and to the rest of the robot (Raspberry Pi,
 
 Full schematic: [`leo_POWER/schematics/sch_pdfs/leo_power_schs.pdf`](leo_POWER/schematics/sch_pdfs/leo_power_schs.pdf)
 
-![Power PCB top-level schematic](assets/power_PCB_toplevel_sch.png)
-![Power PCB 3D render](assets/power_PCB_3d.png)
-![Power PCB layout](assets/power_PCB_layout.png)
+### Layout & 3D render
+
+| Schematic | Layout | 3D View |
+|---|---|---|
+| [![Power PCB Schematic](assets/power_PCB_toplevel_sch.png)](assets/power_PCB_toplevel_sch.png) | [![Power PCB Layout](assets/power_PCB_layout.png)](assets/power_PCB_layout.png) | [![Power PCB 3D](assets/power_PCB_3d.png)](assets/power_PCB_3d.png) |
 
 The power board takes the raw Li-ion/Li-Po pack input through an XT60 connector, protects and monitors the pack, and fans the battery rail out into the regulated rails the rest of the robot needs.
 
@@ -40,7 +42,7 @@ The power board takes the raw Li-ion/Li-Po pack input through an XT60 connector,
 
 The heart of the power board is a **smart BMS built around the TI [BQ7694202PFBR](https://www.ti.com/product/BQ76942)** analog front end (sheet 4 — *BMS*, [`leo_BMS.SchDoc`](leo_POWER/schematics/leo_BMS.SchDoc)):
 
-![Power PCB BMS schematic](assets/leo_power_BMS_sch.png)
+<img src="assets/leo_power_BMS_sch.png" alt="Power PCB BMS schematic" width="600">
 
 - **High-side FET protection stack** — rather than switching the pack ground return, charge (Q402/Q404) and discharge (Q403/Q405) protection FETs (CSD18531Q5AT) are placed high-side on the pack-positive path, gate-driven through the BQ76942's `CHG`/`DSG`/`CFETOFF`/`DFETOFF` outputs with dedicated level-shifting and gate-protection networks (Zener clamps, gate pull-downs, and a `PCHG`/`PDSG` pre-charge/pre-discharge path to soften inrush into downstream capacitance).
 - **Cell sensing** — up to a 10-series cell stack is monitored through the `VC0`–`VC10` taps, with per-cell RC filtering (`R401`–`R405` / `C401`–`C405`) for noise immunity.
@@ -79,9 +81,11 @@ Once the BQ76942 high-side FETs are enabled, `BMS_VBAT_OUT` (the protected pack 
 
 Full schematic: [`leo_PCB/schematics/sch_pdfs/leo_schs.pdf`](leo_PCB/schematics/sch_pdfs/leo_schs.pdf)
 
-![Main PCB top-level schematic](assets/main_PCB_toplevel_sch.png)
-![Main PCB 3D render](assets/main_PCB_3d.png)
-![Main PCB layout](assets/main_PCB_layout.png)
+### Layout & 3D render
+
+| Schematic | Layout | 3D View |
+|---|---|---|
+| [![Main PCB Schematic](assets/main_PCB_toplevel_sch.png)](assets/main_PCB_toplevel_sch.png) | [![Main PCB Layout](assets/main_PCB_layout.png)](assets/main_PCB_layout.png) | [![Main PCB 3D](assets/main_PCB_3d.png)](assets/main_PCB_3d.png) |
 
 The main controller board is the robot's central nervous system: it runs sensor fusion and motion control, drives all motors, and bridges to the Raspberry Pi for high-level autonomy.
 
