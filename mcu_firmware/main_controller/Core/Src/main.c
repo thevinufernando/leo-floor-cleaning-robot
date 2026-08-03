@@ -233,13 +233,13 @@ int main(void)
 
   /* Create the queue(s) */
   /* creation of EncoderQueue */
-  EncoderQueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &EncoderQueue_attributes);
+  EncoderQueueHandle = osMessageQueueNew (16, sizeof(EncoderSample_t), &EncoderQueue_attributes);
 
   /* creation of OdomQueue */
-  OdomQueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &OdomQueue_attributes);
+  OdomQueueHandle = osMessageQueueNew (16, sizeof(Odometry_t), &OdomQueue_attributes);
 
   /* creation of MotorCMDQueue */
-  MotorCMDQueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &MotorCMDQueue_attributes);
+  MotorCMDQueueHandle = osMessageQueueNew (16, sizeof(CmdVelPayload), &MotorCMDQueue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* Guard against CubeMX regenerating the queues with the placeholder element
