@@ -45,16 +45,36 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
+    Core/Src/Sensors/ICM42688/ICM42688.c
+    Core/Src/Sensors/LIS2MDL/LIS2MDL.c
+    Core/Src/Encoders/encoders.c
+    Core/Src/Motors/DifferentialDrive/DRV8251A.c
+    Core/Src/Control/PID.c
+    Core/Src/Control/odometry.c
+    Core/Src/Comms/protocol.c
+    Core/Src/Comms/usb_bridge.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
+    Core/Inc/Sensors/ICM42688
+    Core/Inc/Sensors/LIS2MDL
+    Core/Inc/Encoders
+    Core/Inc/Motors/DifferentialDrive
+    Core/Inc/Control
+    Core/Inc/Comms
 )
 
 # Add project symbols (macros)
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
+)
+
+# nano.specs (set in cmake/gcc-arm-none-eabi.cmake) strips float support from
+# printf/snprintf by default; pull it back in so "%f" actually prints digits.
+target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
+    -u _printf_float
 )
 
 # Remove wrong libob.a library dependency when using cpp files

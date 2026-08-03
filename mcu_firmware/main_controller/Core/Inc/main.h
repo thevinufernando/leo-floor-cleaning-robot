@@ -49,6 +49,8 @@ extern "C" {
 
 /* USER CODE END EM */
 
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
@@ -61,6 +63,12 @@ void Error_Handler(void);
 #define MAG_INT_GPIO_Port GPIOC
 #define ICM_INT_Pin GPIO_PIN_14
 #define ICM_INT_GPIO_Port GPIOC
+#define SBM_NSLEEP_Pin GPIO_PIN_15
+#define SBM_NSLEEP_GPIO_Port GPIOC
+#define LDM_ENC_CHA_Pin GPIO_PIN_0
+#define LDM_ENC_CHA_GPIO_Port GPIOA
+#define LDM_ENC_CHB_Pin GPIO_PIN_1
+#define LDM_ENC_CHB_GPIO_Port GPIOA
 #define ICM_NCS_Pin GPIO_PIN_4
 #define ICM_NCS_GPIO_Port GPIOA
 #define ICM_SCLK_Pin GPIO_PIN_5
@@ -69,6 +77,18 @@ void Error_Handler(void);
 #define ICM_MISO_GPIO_Port GPIOA
 #define ICM_MOSI_Pin GPIO_PIN_7
 #define ICM_MOSI_GPIO_Port GPIOA
+#define RDM_PWM_INA_Pin GPIO_PIN_6
+#define RDM_PWM_INA_GPIO_Port GPIOC
+#define RDM_PWM_INB_Pin GPIO_PIN_7
+#define RDM_PWM_INB_GPIO_Port GPIOC
+#define LDM_PWM_INA_Pin GPIO_PIN_8
+#define LDM_PWM_INA_GPIO_Port GPIOC
+#define LDM_PWM_INB_Pin GPIO_PIN_9
+#define LDM_PWM_INB_GPIO_Port GPIOC
+#define RDM_ENC_CHA_Pin GPIO_PIN_8
+#define RDM_ENC_CHA_GPIO_Port GPIOA
+#define RDM_ENC_CHB_Pin GPIO_PIN_9
+#define RDM_ENC_CHB_GPIO_Port GPIOA
 #define MAG_SCL_Pin GPIO_PIN_6
 #define MAG_SCL_GPIO_Port GPIOB
 #define MAG_SDA_Pin GPIO_PIN_7
