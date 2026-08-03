@@ -1,13 +1,22 @@
-"""
+r"""
 ROS 2 node bridging the Pi and the STM32F722 MCU over USB CDC.
 
 Consumes the MCU's binary MSG_ODOMETRY stream and publishes it as a
-``nav_msgs/Odometry`` message plus the ``odom`` -> ``base_link`` TF, and
+``nav_msgs/Odometry`` message plus the ``odom`` -> ``base_footprint`` TF, and
 forwards ``cmd_vel`` (``geometry_msgs/Twist``) to the MCU as MSG_CMD_VEL.
 
-The odometry + odom->base_link TF this node publishes is a prerequisite for
-running slam_toolbox in online asynchronous mode: slam_toolbox provides
-map->odom, but expects odom->base_link to already exist.
+The odometry TF this node publishes is a prerequisite for running
+slam_toolbox in online asynchronous mode. Per REP-105 the odometry child is
+``base_footprint`` (the robot's ground projection and the URDF root), which
+completes the chain::
+
+    map -> odom -> base_footprint -> base_link -> laser/imu/...
+    \___________/  \____________/  \________________________/
+     slam_toolbox     this node          robot_state_publisher
+
+Publishing odom -> base_link instead would leave base_footprint an orphan
+root (it is base_link's *parent* in the URDF), so nothing could transform
+base_footprint into map.
 """
 
 import math
@@ -44,7 +53,13 @@ class McuBridgeNode(Node):
         self.declare_parameter('port', '/dev/mcu')
         self.declare_parameter('baudrate', 115200)
         self.declare_parameter('odom_frame_id', 'odom')
-        self.declare_parameter('base_frame_id', 'base_link')
+        # REP-105: odometry tracks the robot's ground projection, so the
+        # odom TF child is base_footprint (the URDF root), NOT base_link.
+        # base_footprint is the parent of base_link in the URDF, so
+        # attaching odometry to base_link would leave base_footprint an
+        # orphan root disconnected from map/odom, and offset every frame by
+        # the base_footprint->base_link Z height.
+        self.declare_parameter('base_frame_id', 'base_footprint')
         self.declare_parameter('publish_tf', True)
         # Wheel-only odometry: trust x/y/yaw modestly, and yaw least of all so
         # slam_toolbox leans on its scan match. Diagonal [x, y, yaw].

@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>nav_bringup</name>
+  <version>0.1.0</version>
+  <description>
+    Nav2 bringup for the autonomous cleaning robot: AMCL localization on a
+    pre-built static map, plus point-to-point path planning and following
+    (planner, controller, behavior tree navigator). Encoder-only odometry
+    from mcu_bridge, no IMU fusion. This is the point-to-point navigation
+    stage; coverage path planning for autonomous floor cleaning builds on
+    top of this later.
+  </description>
+
+  <maintainer email="thevinuworks1@gmail.com">thevinufpi</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>nav2_bringup</exec_depend>
+  <exec_depend>nav2_map_server</exec_depend>
+  <exec_depend>nav2_amcl</exec_depend>
+  <exec_depend>nav2_planner</exec_depend>
+  <exec_depend>nav2_controller</exec_depend>
+  <exec_depend>nav2_smoother</exec_depend>
+  <exec_depend>nav2_behaviors</exec_depend>
+  <exec_depend>nav2_bt_navigator</exec_depend>
+  <exec_depend>nav2_lifecycle_manager</exec_depend>
+  <exec_depend>nav2_velocity_smoother</exec_depend>
+  <exec_depend>nav2_regulated_pure_pursuit_controller</exec_depend>
+  <exec_depend>nav2_rviz_plugins</exec_depend>
+  <exec_depend>topic_tools</exec_depend>
+  <exec_depend>lidar_bringup</exec_depend>
+  <exec_depend>mcu_bridge</exec_depend>
+  <exec_depend>robot_description</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
